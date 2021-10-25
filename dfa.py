@@ -25,6 +25,5 @@ class DFA:
         self.go_to_initial_state()
         for inp in input_list:
             self.transition_to_state_with_input(inp)
-            continue
         return self.in_accept_state()
 
