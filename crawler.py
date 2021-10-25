@@ -17,13 +17,13 @@ class Crawler:
         await self.init_browser()
 
         # generate webstate for each page
-        dom_content: str = await self.get_page(self.home_url)  # testing
-        preprocessing: Preprocessing = Preprocessing()
-        preprocessing.extract_webstate(self.home_url, dom_content)
+        await self._get_page_webstate(self.home_url)  # testing
 
         await self.browser.close()
 
-    async def get_page(self, url: str) -> str:
+    async def _get_page_webstate(self, url: str):
         page: pyppeteer.page.Page = await self.browser.newPage()
         await page.goto(url)
-        return await page.content()
+        dom_content: str = await page.content()
+        preprocessing: Preprocessing = Preprocessing(page)
+        await preprocessing.extract_webstate(self.home_url, dom_content)

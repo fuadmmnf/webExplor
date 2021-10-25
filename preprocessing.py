@@ -1,19 +1,20 @@
 import sys
 
-import bs4
-
-from models.webstate import Webstate
 from bs4 import BeautifulSoup
+import pyppeteer.page
+import pyppeteer.element_handle
+from models.webstate import Webstate
 
 
 class Preprocessing:
     SIMILARITY_THRESHOLD = 0.8
 
-    def __init__(self) -> None:
+    def __init__(self, page: pyppeteer.page.Page) -> None:
+        self.page: pyppeteer.page.Page = page
         self.webstate_set: set[Webstate] = set()
 
-    def extract_webstate(self, page_url: str, page_html: str) -> tuple[Webstate, list[str]]:
-        valid_actions: list[str] = self._retrieveValidElements(page_html)
+    async def extract_webstate(self, page_url: str, page_html: str) -> tuple[Webstate, list[pyppeteer.element_handle.ElementHandle]]:
+        valid_actions: list[pyppeteer.element_handle.ElementHandle] = await self._retrieveValidElements(page_html)
         webstate = Webstate(page_url, page_html)  # temporary current page webstate
         for prev_webstate in self.webstate_set:
             if prev_webstate.url != page_url:
@@ -28,10 +29,11 @@ class Preprocessing:
         # calculate using gestalt pattern matching from difflib package
         pass
 
-    def _retrieveValidElements(self, page_html: str) -> list[str]:
-        parser: BeautifulSoup = BeautifulSoup(page_html, "html.parser")
+    async def _retrieveValidElements(self, page_html: str) -> list[pyppeteer.element_handle.ElementHandle]:
+        # parser = BeautifulSoup(page_html, "html.parser")
         # elements = BeautifulSoup(page_html, "html.parser").findAll()
         # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
-        action_elements: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
-
+        # action_elements2: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
+        action_elements = await self.page.querySelectorAll('input, a, button, select > option')
+        print(len(action_elements))
         return action_elements
