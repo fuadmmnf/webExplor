@@ -1,4 +1,9 @@
+import sys
+
+import bs4
+
 from models.webstate import Webstate
+from bs4 import BeautifulSoup
 
 
 class Preprocessing:
@@ -24,4 +29,9 @@ class Preprocessing:
         pass
 
     def _retrieveValidElements(self, page_html: str) -> list[str]:
-        pass
+        parser: BeautifulSoup = BeautifulSoup(page_html, "html.parser")
+        # elements = BeautifulSoup(page_html, "html.parser").findAll()
+        # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
+        action_elements: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
+
+        return action_elements
