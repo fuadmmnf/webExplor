@@ -1,6 +1,7 @@
 from typing import Optional
 import pyppeteer.page
 from pyppeteer import launch
+from preprocessing import Preprocessing
 
 
 class Crawler:
@@ -9,16 +10,20 @@ class Crawler:
         self.browser: Optional[pyppeteer.page.Browser] = None
 
     async def init_browser(self) -> None:
-        self.browser = None if self.browser is not None else await launch()
+        if self.browser is None:
+            self.browser = await launch()
 
     async def crawl(self) -> None:
         await self.init_browser()
-        await self.get_page(self.home_url)  # testing
+
+        # generate webstate for each page
+        dom_content: str = await self.get_page(self.home_url)  # testing
+        preprocessing: Preprocessing = Preprocessing()
+        preprocessing.extract_webstate(self.home_url, dom_content)
+
         await self.browser.close()
 
-    async def get_page(self, url: str) -> None:
-        page = await self.browser.newPage()
+    async def get_page(self, url: str) -> str:
+        page: pyppeteer.page.Page = await self.browser.newPage()
         await page.goto(url)
-        await page.screenshot({'path': 'example.png'})
-
-
+        return await page.content()
