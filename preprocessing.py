@@ -14,17 +14,18 @@ class Preprocessing:
         self.page: pyppeteer.page.Page = page
         self.webstate_set: set[Webstate] = set()
 
-    async def extract_webstate(self, page_url: str, page_html: str) -> tuple[Webstate, list[pyppeteer.element_handle.ElementHandle]]:
+    async def extract_webstate(self, page_url: str, page_html: str) -> Webstate:
         valid_actions: list[pyppeteer.element_handle.ElementHandle] = await self._retrieve_valid_elements()
-        webstate = Webstate(page_url, page_html)  # temporary current page webstate
+        webstate = Webstate(page_url, page_html, valid_actions)  # temporary current page webstate
         for prev_webstate in self.webstate_set:
             if prev_webstate.url != page_url:
                 continue
             if self._is_similar_state(webstate, prev_webstate):
-                return prev_webstate, valid_actions  # return previous webstate due to similarity
+                return Webstate(prev_webstate.url, prev_webstate.html,
+                                valid_actions)  # return previous webstate due to similarity
 
         self.webstate_set.add(webstate)  # update webstate set records
-        return webstate, valid_actions
+        return webstate
 
     def _is_similar_state(self, webstate1: Webstate, webstate2: Webstate) -> bool:
         # calculate using gestalt pattern matching from difflib package
@@ -38,5 +39,6 @@ class Preprocessing:
         # elements = BeautifulSoup(page_html, "html.parser").findAll()sequences of lines of text,
         # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
         # action_elements2: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
-        action_elements = await self.page.querySelectorAll('input, a, button, select > option')
+        action_elements: list[pyppeteer.element_handle.ElementHandle] = await self.page.querySelectorAll(
+            'input, a, button, select > option')
         return action_elements
