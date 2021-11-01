@@ -8,8 +8,6 @@ def explore_webpage(url: str) -> None:
     asyncio.get_event_loop().run_until_complete(crawler.crawl())
 
 
-
-
 if __name__ == '__main__':
     websites = ["https://stackoverflow.com/"]
     for website in websites:

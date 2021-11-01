@@ -11,7 +11,7 @@ class Crawler:
 
     async def init_browser(self) -> None:
         if self.browser is None:
-            self.browser = await launch()
+            self.browser = await launch(headless=False)
 
     async def crawl(self) -> None:
         await self.init_browser()
