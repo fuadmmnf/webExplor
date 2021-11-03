@@ -2,6 +2,7 @@ from typing import Optional
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
+from models.webstate import Webstate
 
 
 class Crawler:
@@ -23,7 +24,9 @@ class Crawler:
 
     async def _get_page_webstate(self, url: str):
         page: pyppeteer.page.Page = await self.browser.newPage()
-        await page.goto(url)
+        await page.goto(url, {'waitUntil': 'networkidle0'})
+        # await page.waitFor(5500)
         dom_content: str = await page.content()
         preprocessing: Preprocessing = Preprocessing(page)
-        await preprocessing.extract_webstate(self.home_url, dom_content)
+        webstate: Webstate = await preprocessing.extract_webstate(self.home_url, dom_content)
+        print(webstate.valid_actions)

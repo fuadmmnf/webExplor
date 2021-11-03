@@ -4,6 +4,5 @@ class Webstate:
         self.url = url
         self.html = html
         self.state = None
-        if valid_actions is None:
-            self.valid_actions = []
+        self.valid_actions = [] if valid_actions is None else valid_actions
 

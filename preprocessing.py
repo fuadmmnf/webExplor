@@ -41,4 +41,5 @@ class Preprocessing:
         # action_elements2: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
         action_elements: list[pyppeteer.element_handle.ElementHandle] = await self.page.querySelectorAll(
             'input, a, button, select > option')
-        return action_elements
+        actionable_elements: list[pyppeteer.element_handle.ElementHandle] = [e for e in action_elements if e is not None]
+        return actionable_elements
