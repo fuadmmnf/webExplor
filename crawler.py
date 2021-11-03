@@ -29,4 +29,4 @@ class Crawler:
         dom_content: str = await page.content()
         preprocessing: Preprocessing = Preprocessing(page)
         webstate: Webstate = await preprocessing.extract_webstate(self.home_url, dom_content)
-        print(webstate.valid_actions)
+        print(len(webstate.valid_actions))
