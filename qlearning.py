@@ -6,8 +6,10 @@ from models.webstate import Webstate
 
 
 class QLearning:
+    DISCOUNT_FACTOR = 0.95
     GUMBEL_SOFTMAX_TAU = 1
     GUMBEL_SOFTMAX_IID = 1
+
 
     def __init__(self) -> None:
         self.visit_count_table: dict[tuple[
