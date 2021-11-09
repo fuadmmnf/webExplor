@@ -40,6 +40,6 @@ class Preprocessing:
         # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
         # action_elements2: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
         action_elements: list[ElementHandle] = await self.page.querySelectorAll(
-            'input, a, button, select > option')
+            'input, a, button, select')
         actionable_elements: list[ElementHandle] = [e for e in action_elements if e is not None]
         return actionable_elements

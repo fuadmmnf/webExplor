@@ -1,4 +1,5 @@
 from typing import Optional
+from random import randint
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
@@ -42,7 +43,8 @@ class Crawler:
             pass
         elif tag_name == 'BUTTON':
             await valid_action.click()
-        else:
-            pass
-
-        # button = await (await valid_aciton.getProperty('href')).jsonValue()
+        elif tag_name == 'SELECT':
+            options = await valid_action.querySelectorAll('option')
+            if len(options) > 0:
+                await valid_action.querySelectorEval('option:nth-child(' + str(randint(1, len(options))) + ')',
+                                                     '(node => node.selected = true)')
