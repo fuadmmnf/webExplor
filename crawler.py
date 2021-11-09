@@ -31,20 +31,67 @@ class Crawler:
         preprocessing: Preprocessing = Preprocessing(page)
         webstate: Webstate = await preprocessing.extract_webstate(self.home_url, dom_content)
 
-        await self._process_action(page, webstate.valid_actions[0])
+        for valid_action in webstate.valid_actions:
+            await _process_action(page, valid_action)
         await page.waitFor(4000)
 
-    async def _process_action(self, page: pyppeteer.page.Page, valid_action: ElementHandle):
-        tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
-        if tag_name == 'A':
-            link = await (await valid_action.getProperty('href')).jsonValue()
-            await page.goto(link.__str__())
-        elif tag_name == 'INPUT':
-            pass
-        elif tag_name == 'BUTTON':
+
+async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle):
+    tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
+    if tag_name == 'A':
+        link = await (await valid_action.getProperty('href')).jsonValue()
+        await page.goto(link.__str__())
+
+    elif tag_name == 'BUTTON':
+        await valid_action.click()
+    elif tag_name == 'SELECT':
+        options = await valid_action.querySelectorAll('option')
+        if len(options) > 0:
+            await valid_action.querySelectorEval('option:nth-child(' + str(randint(1, len(options))) + ')',
+                                                 '(node => node.selected = true)')
+    elif tag_name == 'INPUT':
+        input_type = await (await valid_action.getProperty('type')).jsonValue()
+        if input_type == 'button':
             await valid_action.click()
-        elif tag_name == 'SELECT':
-            options = await valid_action.querySelectorAll('option')
-            if len(options) > 0:
-                await valid_action.querySelectorEval('option:nth-child(' + str(randint(1, len(options))) + ')',
-                                                     '(node => node.selected = true)')
+        elif input_type == 'checkbox':
+            pass
+        elif input_type == 'color':
+            pass
+        elif input_type == 'date':
+            pass
+        elif input_type == 'datetime-local':
+            pass
+        elif input_type == 'email':
+            pass
+        elif input_type == 'file':
+            pass
+        elif input_type == 'hidden':
+            pass
+        elif input_type == 'image':
+            pass
+        elif input_type == 'month':
+            pass
+        elif input_type == 'number':
+            pass
+        elif input_type == 'password':
+            pass
+        elif input_type == 'radio':
+            pass
+        elif input_type == 'range':
+            pass
+        elif input_type == 'reset':
+            pass
+        elif input_type == 'search':
+            pass
+        elif input_type == 'submit':
+            pass
+        elif input_type == 'tel':
+            pass
+        elif input_type == 'text':
+            pass
+        elif input_type == 'time':
+            pass
+        elif input_type == 'url':
+            pass
+        elif input_type == 'week':
+            pass

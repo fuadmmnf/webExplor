@@ -21,11 +21,11 @@
     <!--    </ul>-->
     <h3>Ecosystem</h3>
     <!--    <button @click="rand">Click ME</button>-->
-    <select>
-      <option value="1">first</option>
-      <option value="2">second</option>
-      <option value="3">third</option>
-    </select>
+<!--    <select>-->
+<!--      <option value="1">first</option>-->
+<!--      <option value="2">second</option>-->
+<!--      <option value="3">third</option>-->
+<!--    </select>-->
     <!--    <ul>-->
     <!--      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>-->
     <!--      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>-->
@@ -33,6 +33,31 @@
     <!--      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>-->
     <!--      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>-->
     <!--    </ul>-->
+
+
+    <input type="button">
+    <input type="checkbox">
+    <input type="color">
+    <input type="date">
+    <input type="datetime-local">
+    <input type="email">
+    <input type="file">
+    <input type="hidden">
+    <input type="image">
+    <input type="month">
+    <input type="number">
+    <input type="password">
+    <input type="radio">
+    <input type="range">
+    <input type="reset">
+    <input type="search">
+    <input type="submit">
+    <input type="tel">
+    <input type="text">
+    <input type="time">
+    <input type="url">
+    <input type="week">
+
   </div>
 </template>
 
