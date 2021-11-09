@@ -1,5 +1,6 @@
+import random
 from typing import Optional
-from random import randint
+from faker import Faker
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
@@ -14,7 +15,8 @@ class Crawler:
 
     async def init_browser(self) -> None:
         if self.browser is None:
-            self.browser = await launch(headless=False, devtools=True)
+            # self.browser = await launch(headless=False, devtools=True)
+            self.browser = await launch(headless=False)
 
     async def crawl(self) -> None:
         await self.init_browser()
@@ -47,9 +49,10 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
     elif tag_name == 'SELECT':
         options = await valid_action.querySelectorAll('option')
         if len(options) > 0:
-            await valid_action.querySelectorEval('option:nth-child(' + str(randint(1, len(options))) + ')',
+            await valid_action.querySelectorEval('option:nth-child(' + str(random.randint(1, len(options))) + ')',
                                                  '(node => node.selected = true)')
     elif tag_name == 'INPUT':
+        faker: Faker = Faker()
         input_type = await (await valid_action.getProperty('type')).jsonValue()
         if input_type == 'button':
             await valid_action.click()
@@ -58,11 +61,11 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'color':
             pass
         elif input_type == 'date':
-            pass
+            await valid_action.type(faker.date())
         elif input_type == 'datetime-local':
-            pass
+            await valid_action.type(faker.date_time())
         elif input_type == 'email':
-            pass
+            await valid_action.type(faker.simple_profile()['mail'])
         elif input_type == 'file':
             pass
         elif input_type == 'hidden':
@@ -70,25 +73,25 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'image':
             pass
         elif input_type == 'month':
-            pass
+            await valid_action.type(faker.month_name() + ' ' + faker.year())
         elif input_type == 'number':
-            pass
+            await valid_action.type(str(random.random() * random.randrange(1000)))
         elif input_type == 'password':
-            pass
+            await valid_action.type(faker.password())
         elif input_type == 'radio':
             pass
         elif input_type == 'range':
             pass
         elif input_type == 'reset':
-            pass
+            await valid_action.click()
         elif input_type == 'search':
             pass
         elif input_type == 'submit':
-            pass
+            await valid_action.click()
         elif input_type == 'tel':
-            pass
+            await valid_action.type(faker.phone_number())
         elif input_type == 'text':
-            pass
+            await valid_action.type(faker.text())
         elif input_type == 'time':
             pass
         elif input_type == 'url':
