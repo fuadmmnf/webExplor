@@ -3,7 +3,7 @@ import sys
 from bs4 import BeautifulSoup
 from difflib import SequenceMatcher
 import pyppeteer.page
-import pyppeteer.element_handle
+from pyppeteer.element_handle import ElementHandle
 from models.webstate import Webstate
 
 
@@ -15,7 +15,7 @@ class Preprocessing:
         self.webstate_set: set[Webstate] = set()
 
     async def extract_webstate(self, page_url: str, page_html: str) -> Webstate:
-        valid_actions: list[pyppeteer.element_handle.ElementHandle] = await self._retrieve_valid_elements()
+        valid_actions: list[ElementHandle] = await self._retrieve_valid_elements()
         webstate = Webstate(page_url, page_html, valid_actions)  # temporary current page webstate
         for prev_webstate in self.webstate_set:
             if prev_webstate.url != page_url:
@@ -34,12 +34,12 @@ class Preprocessing:
 
         return SequenceMatcher(None, tags1, tags2).ratio() >= self.SIMILARITY_THRESHOLD
 
-    async def _retrieve_valid_elements(self) -> list[pyppeteer.element_handle.ElementHandle]:
+    async def _retrieve_valid_elements(self) -> list[ElementHandle]:
         # parser = BeautifulSoup(page_html, "html.parser")
         # elements = BeautifulSoup(page_html, "html.parser").findAll()sequences of lines of text,
         # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
         # action_elements2: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
-        action_elements: list[pyppeteer.element_handle.ElementHandle] = await self.page.querySelectorAll(
+        action_elements: list[ElementHandle] = await self.page.querySelectorAll(
             'input, a, button, select > option')
-        actionable_elements: list[pyppeteer.element_handle.ElementHandle] = [e for e in action_elements if e is not None]
+        actionable_elements: list[ElementHandle] = [e for e in action_elements if e is not None]
         return actionable_elements
