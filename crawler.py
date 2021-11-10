@@ -60,22 +60,23 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'checkbox':
             await valid_action.click()
         elif input_type == 'color':
-            pass
+            r = lambda: random.randint(0, 255)
+            await valid_action.type('#%02X%02X%02X' % (r(), r(), r()))
         elif input_type == 'date':
             await valid_action.type(faker.date(pattern='%m-%d-%Y'))
         elif input_type == 'datetime-local':
             await valid_action.type(faker.date_time().strftime('%Y-%m-%dT%H:%M%p'))
         elif input_type == 'email':
-            await valid_action.type(faker.simple_profile()['mail'])
+            await valid_action.type(faker.email())
         elif input_type == 'file':
             file_path = random.choice(os.listdir(os.path.join(os.path.dirname(__file__), 'res/file_types')))
             await valid_action.uploadFile(file_path)
         elif input_type == 'hidden':
             pass
         elif input_type == 'image':
-            pass
+            await valid_action.click()
         elif input_type == 'month':
-            await valid_action.type(faker.month_name() + ' ' + faker.year())
+            await valid_action.type(faker.date_time().strftime('%Y-%m'))
         elif input_type == 'number':
             await valid_action.type(str(random.random() * random.randrange(1000)))
         elif input_type == 'password':
@@ -83,7 +84,7 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'radio':
             await valid_action.click()
         elif input_type == 'range':
-            pass
+            await valid_action.type(str(random.randint(0, 100)))
         elif input_type == 'reset':
             await valid_action.click()
         elif input_type == 'search':
@@ -95,8 +96,8 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'text':
             await valid_action.type(faker.text())
         elif input_type == 'time':
-            pass
+            await valid_action.type(faker.date_time().strftime('%H:%M%p'))
         elif input_type == 'url':
-            pass
+            await valid_action.type(faker.url())
         elif input_type == 'week':
-            pass
+            await valid_action.type(faker.date_time().strftime('%Y-W%U'))

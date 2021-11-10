@@ -37,25 +37,25 @@
 
 <!--    <input type="button">-->
 <!--    <input type="checkbox">-->
-<!--    <input type="color">-->
+    <input type="color" v-model="color"  @change="rand">
 <!--    <input type="date">-->
 <!--    <input type="datetime-local">-->
 <!--    <input type="email">-->
-    <input type="file">
+<!--    <input type="file">-->
 <!--    <input type="hidden">-->
 <!--    <input type="image">-->
-<!--    <input type="month">-->
+<!--    <input type="month" v-model="month" @change="rand">-->
 <!--    <input type="number">-->
 <!--    <input type="password">-->
 <!--    <input type="radio">-->
-<!--    <input type="range">-->
+    <input type="range" v-model="range"  @change="rand">
 <!--    <input type="reset">-->
 <!--    <input type="search">-->
 <!--    <input type="submit">-->
 <!--    <input type="tel">-->
 <!--    <input type="text">-->
 <!--    <input type="time">-->
-<!--    <input type="url">-->
+    <input type="url">
 <!--    <input type="week">-->
 
   </div>
@@ -67,9 +67,18 @@ export default {
   props: {
     msg: String
   },
+  data(){
+    return {
+      month: '',
+      range: '',
+      color: '',
+    }
+  },
   methods: {
     rand() {
-      console.log('clicked')
+      // console.log(this.month)
+      console.log(this.range)
+      console.log(this.color)
     }
   }
 }
