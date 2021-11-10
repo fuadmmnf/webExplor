@@ -4,24 +4,25 @@ from pyppeteer.element_handle import ElementHandle
 
 from models.webstate import Webstate
 
+Transition = tuple[Webstate, ElementHandle, Webstate]
+
 
 class QLearning:
     DISCOUNT_FACTOR = 0.95
     GUMBEL_SOFTMAX_TAU = 1
     GUMBEL_SOFTMAX_IID = 1
 
-
     def __init__(self) -> None:
-        self.visit_count_table: dict[tuple[
-                                         Webstate, ElementHandle, Webstate], int] = defaultdict(lambda: 1,
-                                                                                      {})  # track count of (s`, a, s) each time action a taken + update key if new state found
-        self.q_table: dict[tuple[Webstate, ElementHandle]] = defaultdict(lambda: 1, {})  # state-action pair count recursively
+        self.visit_count_table: dict[Transition, int] = defaultdict(lambda: 1, {})
+        # track count of (s`, a, s) each time action a taken + update key if new state found
+        self.q_table: dict[tuple[Webstate, ElementHandle]] = defaultdict(lambda: 1, {})
+        # state-action pair count recursively
 
-    def _update_q_function(self, visit_tuple: tuple[Webstate, ElementHandle, Webstate]):
+    def _update_q_function(self, visit_tuple: Transition):
         pass
 
     def visit_state(self, from_state: Webstate, action, to_state: Webstate) -> None:
-        visit_tuple: tuple[Webstate, ElementHandle, Webstate] = (from_state, action, to_state)
+        visit_tuple: Transition = (from_state, action, to_state)
         self.visit_count_table[visit_tuple] = self.visit_count_table[visit_tuple] + 1
         # self._update_q_function(visit_tuple)
 

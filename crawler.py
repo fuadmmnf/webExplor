@@ -19,6 +19,7 @@ class Crawler:
     def __init__(self, home_url: str):
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
+        self.active_page: Optional[pyppeteer.page.Page] = None
 
     async def init_browser(self) -> None:
         if self.browser is None:
@@ -35,9 +36,10 @@ class Crawler:
             current_test: Testcase = [(webstate, None)]
 
             while True:
-                preferred_action: Optional[ElementHandle] = available_actions[-1]
-                # a = act[-1]
+                preferred_action: Optional[ElementHandle] = available_actions[-1] # a = act[-1]
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act), if failed append current_test in failed_test_cases list
+
+                await _perform_action(self.active_page, preferred_action)
                 # s, va = get_webstate(p)
                 # check if stuck for some while
 
@@ -55,18 +57,21 @@ class Crawler:
         return failed_test_cases
 
     async def _get_page_webstate(self, url: str) -> Webstate:
-        page: pyppeteer.page.Page = await self.browser.newPage()
-        await page.goto(url, {'waitUntil': 'networkidle0'})
-        # await page.waitFor(5500)
-        dom_content: str = await page.content()
-        preprocessing: Preprocessing = Preprocessing(page)
+        self.active_page = await self.browser.newPage()
+        await self.active_page.goto(url, {'waitUntil': 'networkidle0'})
+        dom_content: str = await self.active_page.content()
+        preprocessing: Preprocessing = Preprocessing(self.active_page)
         return await preprocessing.extract_webstate(self.home_url, dom_content)
         # for valid_action in webstate.valid_actions:
         #     await _process_action(page, valid_action)
         # await page.waitFor(4000)
 
 
-async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle):
+async def _perform_action(page: pyppeteer.page.Page, valid_action: ElementHandle) -> tuple[str, bool]:
+    is_failing = False
+    if valid_action is None:
+        return await page.content(), is_failing
+
     tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
     if tag_name == 'A':
         link = await (await valid_action.getProperty('href')).jsonValue()
