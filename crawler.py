@@ -57,17 +57,17 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         if input_type == 'button':
             await valid_action.click()
         elif input_type == 'checkbox':
-            pass
+            await valid_action.click()
         elif input_type == 'color':
             pass
         elif input_type == 'date':
-            await valid_action.type(faker.date())
+            await valid_action.type(faker.date(pattern='%m-%d-%Y'))
         elif input_type == 'datetime-local':
-            await valid_action.type(faker.date_time())
+            await valid_action.type(faker.date_time().strftime('%Y-%m-%dT%H:%M%p'))
         elif input_type == 'email':
             await valid_action.type(faker.simple_profile()['mail'])
         elif input_type == 'file':
-            pass
+            await valid_action.uploadFile()
         elif input_type == 'hidden':
             pass
         elif input_type == 'image':
@@ -79,7 +79,7 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'password':
             await valid_action.type(faker.password())
         elif input_type == 'radio':
-            pass
+            await valid_action.click()
         elif input_type == 'range':
             pass
         elif input_type == 'reset':
