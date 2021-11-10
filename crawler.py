@@ -1,4 +1,5 @@
 import random
+import os
 from typing import Optional
 from faker import Faker
 import pyppeteer.page
@@ -67,7 +68,8 @@ async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle
         elif input_type == 'email':
             await valid_action.type(faker.simple_profile()['mail'])
         elif input_type == 'file':
-            await valid_action.uploadFile()
+            file_path = random.choice(os.listdir(os.path.join(os.path.dirname(__file__), 'res/file_types')))
+            await valid_action.uploadFile(file_path)
         elif input_type == 'hidden':
             pass
         elif input_type == 'image':
