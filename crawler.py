@@ -8,8 +8,14 @@ from preprocessing import Preprocessing
 from models.webstate import Webstate
 from pyppeteer.element_handle import ElementHandle
 
+Testcase = list[tuple[Webstate, Optional[ElementHandle]]]
+
 
 class Crawler:
+    MAXIMUM_STEPS = 8
+    TRACE_SELECTION_INTERVAL = 5
+    TIME_BUDGET_MINUTES = 30
+
     def __init__(self, home_url: str):
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
@@ -19,24 +25,45 @@ class Crawler:
             # self.browser = await launch(headless=False, devtools=True)
             self.browser = await launch(headless=False)
 
-    async def crawl(self) -> None:
+    async def crawl(self) -> list[Testcase]:
         await self.init_browser()
+        failed_test_cases: list[Testcase] = []
+        current_page: str = self.home_url
+        while True:
+            available_actions: list[Optional[ElementHandle]] = [None]
+            webstate: Webstate = await self._get_page_webstate(current_page)
+            current_test: Testcase = [(webstate, None)]
 
-        # generate webstate for each page
-        await self._get_page_webstate(self.home_url)  # testing
+            while True:
+                preferred_action: Optional[ElementHandle] = available_actions[-1]
+                # a = act[-1]
+                # apply action here check if error rises in current page environemnt: p, failed := env ( p', act), if failed append current_test in failed_test_cases list
+                # s, va = get_webstate(p)
+                # check if stuck for some while
+
+                # calculate curiosity for each eaction in state s`, a, s
+                # train policy for state
+                # update dfa
+                # append action a to test_case
+                # update available_actions with actions(sorted) of updated state
+
+                # current_page = p
+                break
+            break
+
         await self.browser.close()
+        return failed_test_cases
 
-    async def _get_page_webstate(self, url: str):
+    async def _get_page_webstate(self, url: str) -> Webstate:
         page: pyppeteer.page.Page = await self.browser.newPage()
         await page.goto(url, {'waitUntil': 'networkidle0'})
         # await page.waitFor(5500)
         dom_content: str = await page.content()
         preprocessing: Preprocessing = Preprocessing(page)
-        webstate: Webstate = await preprocessing.extract_webstate(self.home_url, dom_content)
-
-        for valid_action in webstate.valid_actions:
-            await _process_action(page, valid_action)
-        await page.waitFor(4000)
+        return await preprocessing.extract_webstate(self.home_url, dom_content)
+        # for valid_action in webstate.valid_actions:
+        #     await _process_action(page, valid_action)
+        # await page.waitFor(4000)
 
 
 async def _process_action(page: pyppeteer.page.Page, valid_action: ElementHandle):
