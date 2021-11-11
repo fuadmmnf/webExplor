@@ -21,7 +21,7 @@ class QLearning:
         self.transition_table: dict[tuple[Webstate, ElementHandle], Optional[Webstate]] = defaultdict(lambda: None, {})
         # state-action pair count recursively
 
-    def _calculate_q_function(self, from_state: Webstate, action: ElementHandle) -> float:
+    def update_q_function(self, from_state: Webstate, action: ElementHandle) -> float:
         curiosity = self._get_count(from_state, action)
         to_state: Webstate = self.transition_table[(from_state, action)]
         antecedent_q_value = 0
@@ -29,7 +29,7 @@ class QLearning:
             reaching_state: Optional[Webstate] = self.transition_table[(to_state, action)]
 
             antecedent_q_value = max(antecedent_q_value,
-                                     1 if reaching_state is None else self._calculate_q_function(to_state, a))
+                                     1 if reaching_state is None else self.update_q_function(to_state, a))
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
         return self.q_table[(from_state, action)]
@@ -41,7 +41,7 @@ class QLearning:
         self.state_action_count[(from_state, action)] = self.state_action_count[(from_state, action)] + 1
         # check if new state reached
         if from_state is not to_state:
-            self._calculate_q_function(visit_tuple[0], visit_tuple[1])
+            self.update_q_function(visit_tuple[0], visit_tuple[1])
 
     def _get_count(self, from_state: Webstate, action, to_state: Webstate = None) -> int:
         return self.state_action_count[(from_state, action)] if to_state is None else self.visit_count_table[
@@ -52,6 +52,6 @@ class QLearning:
 
     def calculate_action_weight(self, state: Webstate, action) -> float:
         def __calc(s, a):
-            return math.exp((self._calculate_q_function(s, a) + self.GUMBEL_SOFTMAX_IID) / self.GUMBEL_SOFTMAX_TAU)
+            return math.exp((self.update_q_function(s, a) + self.GUMBEL_SOFTMAX_IID) / self.GUMBEL_SOFTMAX_TAU)
 
         return __calc(state, action) / sum(map(lambda a: __calc(state, a), state.valid_actions))

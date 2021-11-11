@@ -55,7 +55,7 @@ class Crawler:
                 self.qlearning.visit_state(prev_webstate, action, new_webstate)  # track count of state visit
                 curiosity: float = self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
                 # train policy for state
-                ## DUE ##
+                self.qlearning.update_q_function(prev_webstate, action)
                 # update dfa
                 ## DUE ##
                 # append action action to test_case
@@ -64,6 +64,8 @@ class Crawler:
 
                 # current_page = p, current_state = s
                 prev_webstate = new_webstate
+                action_sequence = sorted(new_webstate.valid_actions,
+                                         key=lambda a: self.qlearning.q_table[new_webstate, a])
                 break
             break
 
