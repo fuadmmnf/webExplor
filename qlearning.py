@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from typing import Optional
 from pyppeteer.element_handle import ElementHandle
 
 from models.webstate import Webstate
@@ -15,23 +16,41 @@ class QLearning:
     def __init__(self) -> None:
         self.visit_count_table: dict[Transition, int] = defaultdict(lambda: 1, {})
         # track count of (s`, a, s) each time action a taken + update key if new state found
-        self.q_table: dict[tuple[Webstate, ElementHandle]] = defaultdict(lambda: 1, {})
+        self.state_action_count: dict[tuple[Webstate, ElementHandle]] = defaultdict(lambda: 1, {})
+        self.q_table: dict[tuple[Webstate, ElementHandle], int] = defaultdict(lambda: 1, {})
+        self.transition_table: dict[tuple[Webstate, ElementHandle], Optional[Webstate]] = defaultdict(lambda: None, {})
         # state-action pair count recursively
 
-    def _update_q_function(self, visit_tuple: Transition):
-        pass
+    def _calculate_q_function(self, visit_tuple: Transition) -> float:
+        from_state, action, to_state = visit_tuple
+        curiosity = self._get_count(from_state, action)
+
+        antecedent_q_value = 0
+        for a in to_state.valid_actions:
+            reaching_state: Optional[Webstate] = self.transition_table[(to_state, action)]
+
+            antecedent_q_value = max(antecedent_q_value,
+                                     1 if reaching_state is None else self._calculate_q_function(
+                                         (to_state, a, reaching_state)))
+
+        self.q_table[(visit_tuple[0], visit_tuple[1])] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
+        return self.q_table[(visit_tuple[0], visit_tuple[1])]
 
     def visit_state(self, from_state: Webstate, action, to_state: Webstate) -> None:
         visit_tuple: Transition = (from_state, action, to_state)
+        self.transition_table[(from_state, action)] = to_state
         self.visit_count_table[visit_tuple] = self.visit_count_table[visit_tuple] + 1
-        # self._update_q_function(visit_tuple)
+        self.state_action_count[(from_state, action)] = self.state_action_count[(from_state, action)] + 1
+        # check if new state reached
+        if from_state is not to_state:
+            self._calculate_q_function(visit_tuple)
 
-    def _get_action_count(self, from_state: Webstate, action, to_state: Webstate = None) -> int:
-        return self.q_table[(from_state, action)] if to_state is None else self.visit_count_table[
+    def _get_count(self, from_state: Webstate, action, to_state: Webstate = None) -> int:
+        return self.state_action_count[(from_state, action)] if to_state is None else self.visit_count_table[
             (from_state, action, to_state)]
 
     def calculate_curiosity(self, from_state: Webstate, action, to_state: Webstate = None) -> float:
-        return 1.0 / math.sqrt(self._get_action_count(from_state, action, to_state))
+        return 1.0 / math.sqrt(self._get_count(from_state, action, to_state))
 
     def calculate_action_weight(self, state: Webstate, action) -> float:
         def __calc(s, a):

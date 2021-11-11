@@ -18,6 +18,7 @@ class Crawler:
     TIME_BUDGET_MINUTES = 30
 
     def __init__(self, home_url: str):
+        self.qlearning: QLearning = QLearning()
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
@@ -28,10 +29,10 @@ class Crawler:
             self.browser = await launch(headless=False)
 
     async def crawl(self) -> list[Testcase]:
-        qlearning: QLearning = QLearning()
+
         await self.init_browser()
         #################
-        self.active_page = await self.browser.pages()[-1]
+        self.active_page = (await self.browser.pages())[-1]
         ################
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
@@ -47,14 +48,16 @@ class Crawler:
                     failed_test_cases.append(testcase)
                 # s, va = get_webstate(p), get new state after performing action(s)
                 new_webstate: Webstate = await self._get_page_webstate()
-
                 # check if stuck for some while
-
-                # calculate curiosity for each eaction in state s`, a, s
+                ## DUE ##
+                # calculate curiosity for transition s`, a, s
                 action = action_sequence[-1]
-                curiosity: float = qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
+                self.qlearning.visit_state(prev_webstate, action, new_webstate)  # track count of state visit
+                curiosity: float = self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
                 # train policy for state
+                ## DUE ##
                 # update dfa
+                ## DUE ##
                 # append action action to test_case
                 testcase.append((new_webstate, action))
                 # update available_actions with actions(sorted) of updated state
@@ -69,12 +72,18 @@ class Crawler:
 
     async def _get_page_webstate(self) -> Webstate:
         preprocessing: Preprocessing = Preprocessing(self.active_page)
-        return await preprocessing.extract_webstate(self.active_page.url, await self.active_page.content())
+        webstate: Webstate = await preprocessing.extract_webstate(self.active_page.url,
+                                                                  await self.active_page.content())
+
+        return webstate
 
 
 async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optional[ElementHandle]]) -> bool:
     is_failing = False
+    # Get page error events for action
+    ## DUE ##
 
+    # Apply action(s) to page
     for valid_action in valid_actions:
         if valid_action is None:
             continue
@@ -141,4 +150,7 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
             elif input_type == 'week':
                 await valid_action.type(faker.date_time().strftime('%Y-W%U'))
 
+    # Remove page error events for action
+    ## DUE ##
+    await page.waitForNavigation({'waitUntil': 'networkidle0'})
     return is_failing
