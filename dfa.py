@@ -23,7 +23,7 @@ class DFA:
             return
         self.current_state = self.transition_function[(self.current_state, input_value)]
 
-    def find_shortest_tract(self, key, value):
+    def find_shortest_trace(self, key, value):
         return find_path(self.graph, key[0], value, cost_func=lambda a, b, c, d: 1).edges
 
     def in_accept_state(self):
