@@ -8,6 +8,7 @@ from preprocessing import Preprocessing
 from qlearning import QLearning
 from models.webstate import Webstate
 from pyppeteer.element_handle import ElementHandle
+from pyppeteer.network_manager import Request
 
 Testcase = list[tuple[Webstate, Optional[ElementHandle]]]
 
@@ -31,10 +32,29 @@ class Crawler:
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
+
         #################
         self.active_page = (await self.browser.pages())[-1]
-        await self.active_page.setViewport({'width': 1366, 'height': 768})
+
+        # @self.active_page.on('error')
+        # def handle_error(message):
+        #     print(message)
+        #
+        # @self.active_page.on('pageerror')
+        # def handle_page_error(message):
+        #     print(message)
+
+        # @self.active_page.on('requestfailed')
+        # def handle_request_error(message: Request):
+        #     print(message.failure())
+
+        @self.active_page.on('console')
+        def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+            if message.type == 'error':
+                print(message.text)
+
         #################
+
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
         failed_test_cases: list[Testcase] = []
@@ -58,7 +78,7 @@ class Crawler:
                 ## DUE ##
 
                 # calculate curiosity for transition s`, a, s
-                action = action_sequence[-1]
+                action = action_sequence[0]
                 self.qlearning.visit_state(prev_webstate, action, new_webstate)  # track count of state visit
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -73,7 +93,8 @@ class Crawler:
 
                 # update available_actions with actions(sorted) of updated state
                 action_sequence = [sorted(new_webstate.valid_actions,
-                                          key=lambda a: self.qlearning.calculate_action_weight(new_webstate, a))[-1]]
+                                          key=lambda a: self.qlearning.calculate_action_weight(
+                                              new_webstate, a), reverse=True)[0]]
                 # current_page = p, current_state = s
                 prev_webstate = new_webstate
 
@@ -84,7 +105,7 @@ class Crawler:
                 # print(self.qlearning.transition_table, end='\n\n')
                 #################
                 action_sequence_iterator = action_sequence_iterator + 1
-                await self.active_page.waitForC(1500)
+                await self.active_page.waitFor(2500)
                 ##for debugging
                 if action_sequence_iterator > 1: break
             test_case_iterator = test_case_iterator + 1
@@ -115,9 +136,11 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
         tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
         # print('tag name: ' + tag_name)
         if tag_name == 'A':
-            link = await (await valid_action.getProperty('href')).jsonValue()
-            await page.goto(link.__str__())
-
+            # for self page navigation
+            # link = await (await valid_action.getProperty('href')).jsonValue()
+            # await page.goto(link.__str__())
+            #######
+            await valid_action.click()
         elif tag_name == 'BUTTON':
             await valid_action.click()
         elif tag_name == 'SELECT':
