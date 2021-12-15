@@ -25,48 +25,70 @@ class Crawler:
 
     async def init_browser(self) -> None:
         if self.browser is None:
-            # self.browser = await launch(headless=False, devtools=True)
-            self.browser = await launch(headless=False)
+            self.browser = await launch(headless=False, devtools=True)
+            # self.browser = await launch(headless=False)
 
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
         #################
         self.active_page = (await self.browser.pages())[-1]
-        ################
+        await self.active_page.setViewport({'width': 1366, 'height': 768})
+        #################
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
         failed_test_cases: list[Testcase] = []
+        test_case_iterator = 0
         while True:
+
             action_sequence: list[Optional[ElementHandle]] = [None]
             prev_webstate: Webstate = await self._get_page_webstate()
             testcase: Testcase = [(prev_webstate, None)]
+            action_sequence_iterator = 0
             while True:
+
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act), if failed append current_test in failed_test_cases list
                 failed = await _perform_action(self.active_page, action_sequence)
                 if failed:
                     failed_test_cases.append(testcase)
                 # s, va = get_webstate(p), get new state after performing action(s)
                 new_webstate: Webstate = await self._get_page_webstate()
+
                 # check if stuck for some while
                 ## DUE ##
+
                 # calculate curiosity for transition s`, a, s
                 action = action_sequence[-1]
                 self.qlearning.visit_state(prev_webstate, action, new_webstate)  # track count of state visit
-                self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
+                # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
+
                 # train policy for state
                 self.qlearning.update_q_function(prev_webstate, action)
+
                 # update dfa
                 ## DUE ##
+
                 # append action action to test_case
                 testcase.append((new_webstate, action))
+
                 # update available_actions with actions(sorted) of updated state
                 action_sequence = [sorted(new_webstate.valid_actions,
-                                          key=lambda a: self.qlearning.q_table[new_webstate, a])[-1]]
+                                          key=lambda a: self.qlearning.calculate_action_weight(new_webstate, a))[-1]]
                 # current_page = p, current_state = s
                 prev_webstate = new_webstate
 
-                break
+                ########testing q-values#########
+                # print(self.qlearning.visit_count_table, end='\n\n')
+                # print(self.qlearning.state_action_count, end='\n\n')
+                # print(self.qlearning.q_table, end='\n\n')
+                # print(self.qlearning.transition_table, end='\n\n')
+                #################
+                action_sequence_iterator = action_sequence_iterator + 1
+                await self.active_page.waitForC(1500)
+                ##for debugging
+                if action_sequence_iterator > 1: break
+            test_case_iterator = test_case_iterator + 1
+            ##for debugging
             break
 
         await self.browser.close()
@@ -91,6 +113,7 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
             continue
 
         tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
+        # print('tag name: ' + tag_name)
         if tag_name == 'A':
             link = await (await valid_action.getProperty('href')).jsonValue()
             await page.goto(link.__str__())
@@ -105,13 +128,19 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
         elif tag_name == 'INPUT':
             faker: Faker = Faker()
             input_type = await (await valid_action.getProperty('type')).jsonValue()
+            # print('input type: ' + input_type)
             if input_type == 'button':
                 await valid_action.click()
             elif input_type == 'checkbox':
                 await valid_action.click()
             elif input_type == 'color':
-                r = lambda: random.randint(0, 255)
-                await valid_action.type('#%02X%02X%02X' % (r(), r(), r()))
+                # not working
+                # r = lambda: random.randint(0, 255)
+                # color = '#%02X%02X%02X' % (r(), r(), r())
+                # print(color)
+                # await valid_action.type(color)
+                pass
+
             elif input_type == 'date':
                 await valid_action.type(faker.date(pattern='%m-%d-%Y'))
             elif input_type == 'datetime-local':
@@ -134,11 +163,15 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
             elif input_type == 'radio':
                 await valid_action.click()
             elif input_type == 'range':
-                await valid_action.type(str(random.randint(0, 100)))
+                # not working
+                # rand_range = str(random.randint(0, 100))
+                # print(rand_range)
+                # await valid_action.type()
+                pass
             elif input_type == 'reset':
                 await valid_action.click()
-            elif input_type == 'search':
-                pass
+            elif input_type == 'search':  # potential
+                await valid_action.type(faker.text())
             elif input_type == 'submit':
                 await valid_action.click()
             elif input_type == 'tel':
@@ -154,5 +187,6 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
 
     # Remove page error events for action
     ## DUE ##
-    await page.waitForNavigation({'waitUntil': 'networkidle0'})
+
+    # await page.waitForNavigation({'waitUntil': 'networkidle0'})
     return is_failing

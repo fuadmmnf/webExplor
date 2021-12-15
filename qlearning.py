@@ -25,7 +25,7 @@ class QLearning:
         curiosity = self._get_count(from_state, action)
         to_state: Webstate = self.transition_table[(from_state, action)]
         antecedent_q_value = 0
-        for a in to_state.valid_actions:
+        for a in to_state.valid_actions if to_state is not None else []:
             reaching_state: Optional[Webstate] = self.transition_table[(to_state, action)]
 
             antecedent_q_value = max(antecedent_q_value,
@@ -39,9 +39,10 @@ class QLearning:
         self.transition_table[(from_state, action)] = to_state
         self.visit_count_table[visit_tuple] = self.visit_count_table[visit_tuple] + 1
         self.state_action_count[(from_state, action)] = self.state_action_count[(from_state, action)] + 1
-        # check if new state reached
-        if from_state is not to_state:
-            self.update_q_function(visit_tuple[0], visit_tuple[1])
+
+        # check if new state reached, currently not necessary
+        # if from_state is not to_state:
+        #     self.update_q_function(visit_tuple[0], visit_tuple[1])
 
     def _get_count(self, from_state: Webstate, action, to_state: Webstate = None) -> int:
         return self.state_action_count[(from_state, action)] if to_state is None else self.visit_count_table[
