@@ -7,10 +7,10 @@ from pyppeteer import launch
 from preprocessing import Preprocessing
 from qlearning import QLearning
 from models.webstate import Webstate
+from models.action import Action
 from pyppeteer.element_handle import ElementHandle
-from pyppeteer.network_manager import Request
 
-Testcase = list[tuple[Webstate, Optional[ElementHandle]]]
+Testcase = list[tuple[Webstate, Optional[Action]]]
 
 
 class Crawler:
@@ -61,7 +61,7 @@ class Crawler:
         test_case_iterator = 0
         while True:
 
-            action_sequence: list[Optional[ElementHandle]] = [None]
+            action_sequence: list[Optional[Action]] = [None]
             prev_webstate: Webstate = await self._get_page_webstate()
             testcase: Testcase = [(prev_webstate, None)]
             action_sequence_iterator = 0
@@ -99,15 +99,17 @@ class Crawler:
                 prev_webstate = new_webstate
 
                 ########testing q-values#########
-                # print(self.qlearning.visit_count_table, end='\n\n')
-                # print(self.qlearning.state_action_count, end='\n\n')
-                # print(self.qlearning.q_table, end='\n\n')
-                # print(self.qlearning.transition_table, end='\n\n')
+                # print(self.qlearning.visit_count_table)
+                # print(self.qlearning.state_action_count)
+                # print(self.qlearning.q_table)
+                # print(self.qlearning.transition_table)
+                # print('\n\n')
                 #################
                 action_sequence_iterator = action_sequence_iterator + 1
                 await self.active_page.waitFor(2500)
                 ##for debugging
-                if action_sequence_iterator > 1: break
+                if action_sequence_iterator > 1:
+                    break
             test_case_iterator = test_case_iterator + 1
             ##for debugging
             break
@@ -119,7 +121,7 @@ class Crawler:
         preprocessing: Preprocessing = Preprocessing(self.active_page)
         webstate: Webstate = await preprocessing.extract_webstate(self.active_page.url,
                                                                   await self.active_page.content())
-
+        print(webstate.valid_actions[0])
         return webstate
 
 
@@ -130,6 +132,7 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
 
     # Apply action(s) to page
     for valid_action in valid_actions:
+
         if valid_action is None:
             continue
 
