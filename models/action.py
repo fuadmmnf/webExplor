@@ -7,15 +7,18 @@ class Action(ElementHandle):
                          element_handle._page, element_handle._frameManager)
         self.outer_html = outer_html
         self.page_url = page_url
+        self._hash = hash((self.page_url, self.outer_html))
 
     def __str__(self) -> str:
         return f'{self.page_url} -> {self.outer_html}'
+    def __repr__(self) -> str:
+        return f'{self.page_url} -> {self.outer_html.split(">")[0]}'
 
     def __hash__(self):
-        return hash((self.page_url, self.outer_html))
+        return self._hash
 
     def __eq__(self, other: object) -> bool:
-        return (self.page_url, self.outer_html) == (other.page_url, other.outer_html)
+        return self.__hash__() == other.__hash__()
 
     def __ne__(self, other):
         return not(self == other)

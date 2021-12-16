@@ -61,8 +61,8 @@ class Crawler:
         test_case_iterator = 0
         while True:
 
-            action_sequence: list[Optional[Action]] = [None]
             prev_webstate: Webstate = await self._get_page_webstate()
+            action_sequence: list[Optional[Action]] = [prev_webstate.valid_actions[0]]
             testcase: Testcase = [(prev_webstate, None)]
             action_sequence_iterator = 0
             while True:
@@ -103,12 +103,18 @@ class Crawler:
                 # print(self.qlearning.state_action_count)
                 # print(self.qlearning.q_table)
                 # print(self.qlearning.transition_table)
-                # print('\n\n')
+
+
+                for k, v in self.qlearning.visit_count_table.items():
+                    print(k, v)
+
+
+                print('\n\n')
                 #################
                 action_sequence_iterator = action_sequence_iterator + 1
-                await self.active_page.waitFor(2500)
+                await self.active_page.waitFor(5500)
                 ##for debugging
-                if action_sequence_iterator > 1:
+                if action_sequence_iterator > 5:
                     break
             test_case_iterator = test_case_iterator + 1
             ##for debugging
@@ -121,7 +127,7 @@ class Crawler:
         preprocessing: Preprocessing = Preprocessing(self.active_page)
         webstate: Webstate = await preprocessing.extract_webstate(self.active_page.url,
                                                                   await self.active_page.content())
-        print(webstate.valid_actions[0])
+        # print(webstate.valid_actions[0])
         return webstate
 
 

@@ -26,11 +26,12 @@ class QLearning:
         to_state: Webstate = self.transition_table[(from_state, action)]
 
         antecedent_q_value = 0
+
         for a in to_state.valid_actions if to_state is not None else []:
             reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
-
-            antecedent_q_value = max(antecedent_q_value,
-                                     1 if reaching_state is None else self.update_q_function(to_state, a))
+            if reaching_state is not to_state:
+                antecedent_q_value = max(antecedent_q_value,
+                                         1 if reaching_state is None else self.q_table[(to_state, a)])
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
         return self.q_table[(from_state, action)]
