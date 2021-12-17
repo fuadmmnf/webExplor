@@ -83,7 +83,8 @@ class Crawler:
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                self.qlearning.update_q_function(prev_webstate, action)
+                if new_webstate is not prev_webstate:
+                    self.qlearning.update_q_function(prev_webstate, action)
 
                 # update dfa
                 ## DUE ##
@@ -93,8 +94,8 @@ class Crawler:
 
                 # update available_actions with actions(sorted) of updated state
                 action_sequence = [sorted(new_webstate.valid_actions,
-                                          key=lambda a: self.qlearning.calculate_action_weight(
-                                              new_webstate, a), reverse=True)[0]]
+                                          key=lambda act: self.qlearning.calculate_action_weight(
+                                              new_webstate, act), reverse=True)[0]]
                 # current_page = p, current_state = s
                 prev_webstate = new_webstate
 
@@ -105,9 +106,11 @@ class Crawler:
                 # print(self.qlearning.transition_table)
 
 
-                for k, v in self.qlearning.visit_count_table.items():
-                    print(k, v)
-
+                # for k, v in self.qlearning.visit_count_table.items():
+                #     print(k, v)
+                for a in new_webstate.valid_actions:
+                    print(a, self.qlearning.calculate_action_weight(
+                                              new_webstate, a))
 
                 print('\n\n')
                 #################
@@ -146,10 +149,10 @@ async def _perform_action(page: pyppeteer.page.Page, valid_actions: list[Optiona
         # print('tag name: ' + tag_name)
         if tag_name == 'A':
             # for self page navigation
-            # link = await (await valid_action.getProperty('href')).jsonValue()
-            # await page.goto(link.__str__())
+            link = await (await valid_action.getProperty('href')).jsonValue()
+            await page.goto(link.__str__())
             #######
-            await valid_action.click()
+            # await valid_action.click()
         elif tag_name == 'BUTTON':
             await valid_action.click()
         elif tag_name == 'SELECT':

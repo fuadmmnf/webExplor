@@ -21,21 +21,6 @@ class QLearning:
         self.transition_table: dict[tuple[Webstate, Action], Optional[Webstate]] = defaultdict(lambda: None, {})
         # state-action pair count recursively
 
-    def update_q_function(self, from_state: Webstate, action: Action) -> float:
-        curiosity = self._get_count(from_state, action)
-        to_state: Webstate = self.transition_table[(from_state, action)]
-
-        antecedent_q_value = 0
-
-        for a in to_state.valid_actions if to_state is not None else []:
-            reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
-            if reaching_state is not to_state:
-                antecedent_q_value = max(antecedent_q_value,
-                                         1 if reaching_state is None else self.q_table[(to_state, a)])
-
-        self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
-        return self.q_table[(from_state, action)]
-
     def visit_state(self, from_state: Webstate, action: Action, to_state: Webstate) -> None:
         visit_tuple: Transition = (from_state, action, to_state)
         self.transition_table[(from_state, action)] = to_state
@@ -46,6 +31,19 @@ class QLearning:
         # if from_state is not to_state:
         #     self.update_q_function(visit_tuple[0], visit_tuple[1])
 
+    def update_q_function(self, from_state: Webstate, action: Action) -> float:
+        curiosity = self.calculate_curiosity(from_state, action)
+        to_state: Webstate = self.transition_table[(from_state, action)]
+
+        antecedent_q_value = 0
+
+        for a in to_state.valid_actions if to_state is not None else []:
+            # reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
+            antecedent_q_value = max(antecedent_q_value, self.q_table[(to_state, a)])
+
+        self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
+        return self.q_table[(from_state, action)]
+
     def _get_count(self, from_state: Webstate, action: Action, to_state: Webstate = None) -> int:
         return self.state_action_count[(from_state, action)] if to_state is None else self.visit_count_table[
             (from_state, action, to_state)]
@@ -54,7 +52,11 @@ class QLearning:
         return 1.0 / math.sqrt(self._get_count(from_state, action, to_state))
 
     def calculate_action_weight(self, state: Webstate, action: Action) -> float:
-        def __calc(s, a):
-            return math.exp((self.update_q_function(s, a) + self.GUMBEL_SOFTMAX_IID) / self.GUMBEL_SOFTMAX_TAU)
+        # def __calc(s, a):
+        #     return math.exp((self.q_table[(s, a)] + self.GUMBEL_SOFTMAX_IID) / self.GUMBEL_SOFTMAX_TAU)
+        #
+        # return __calc(state, action) / sum(map(lambda a: __calc(state, a), state.valid_actions))
 
-        return __calc(state, action) / sum(map(lambda a: __calc(state, a), state.valid_actions))
+
+        # return self.update_q_function(state, action)
+        return self.calculate_curiosity(state, action)

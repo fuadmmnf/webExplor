@@ -9,10 +9,14 @@ class Action(ElementHandle):
         self.page_url = page_url
         self._hash = hash((self.page_url, self.outer_html))
 
+    # def __str__(self) -> str:
+    #     return f'{self.page_url} -> {self.outer_html}'
+    #
     def __str__(self) -> str:
-        return f'{self.page_url} -> {self.outer_html}'
+        return f'{self._hash} -> {self.outer_html.split(">")[0]}'
+    
     def __repr__(self) -> str:
-        return f'{self.page_url} -> {self.outer_html.split(">")[0]}'
+        return f'{self._hash} -> {self.outer_html.split(">")[0]}'
 
     def __hash__(self):
         return self._hash
