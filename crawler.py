@@ -1,5 +1,6 @@
 import random
 import os
+import time
 from typing import Optional
 from faker import Faker
 import pyppeteer.page
@@ -55,11 +56,12 @@ class Crawler:
 
         #################
 
-        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
         failed_test_cases: list[Testcase] = []
         test_case_iterator = 0
+        start_time: time = time.time()
         while True:
+            await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
             prev_webstate: Webstate = await self._get_page_webstate()
             action_sequence: list[Optional[Action]] = [prev_webstate.valid_actions[0]]
@@ -115,13 +117,11 @@ class Crawler:
                 print('\n\n')
                 #################
                 action_sequence_iterator = action_sequence_iterator + 1
-                await self.active_page.waitFor(5500)
-                ##for debugging
-                if action_sequence_iterator > 5:
+                if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
             test_case_iterator = test_case_iterator + 1
-            ##for debugging
-            break
+            if (time.time() - start_time)/60.0 > 30:
+                break
 
         await self.browser.close()
         return failed_test_cases
