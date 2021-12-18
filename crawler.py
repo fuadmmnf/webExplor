@@ -1,6 +1,8 @@
 import random
 import os
 import time
+from collections import defaultdict
+from urllib.parse import urlparse
 from typing import Optional
 from faker import Faker
 import pyppeteer.page
@@ -24,6 +26,7 @@ class Crawler:
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
+        self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
 
     async def init_browser(self) -> None:
         if self.browser is None:
@@ -33,7 +36,7 @@ class Crawler:
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
-
+        root_domain: str = urlparse(self.home_url).netloc
         #################
         self.active_page = (await self.browser.pages())[-1]
 
@@ -56,7 +59,6 @@ class Crawler:
 
         #################
 
-
         failed_test_cases: list[Testcase] = []
         test_case_iterator = 0
         start_time: time = time.time()
@@ -65,7 +67,7 @@ class Crawler:
 
             prev_webstate: Webstate = await self._get_page_webstate()
             action_sequence: list[Optional[Action]] = [prev_webstate.valid_actions[0]]
-            testcase: Testcase = [(prev_webstate, None)]
+            testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0
             while True:
 
@@ -73,14 +75,20 @@ class Crawler:
                 failed = await _perform_action(self.active_page, action_sequence)
                 if failed:
                     failed_test_cases.append(testcase)
+
                 # s, va = get_webstate(p), get new state after performing action(s)
                 new_webstate: Webstate = await self._get_page_webstate()
+
 
                 # check if stuck for some while
                 ## DUE ##
 
                 # calculate curiosity for transition s`, a, s
                 action = action_sequence[0]
+                if urlparse(new_webstate.url).netloc is not root_domain:
+                    self.invalid_actions[action] = True
+                    break
+
                 self.qlearning.visit_state(prev_webstate, action, new_webstate)  # track count of state visit
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -97,7 +105,7 @@ class Crawler:
                 # update available_actions with actions(sorted) of updated state
                 action_sequence = [sorted(new_webstate.valid_actions,
                                           key=lambda act: self.qlearning.calculate_action_weight(
-                                              new_webstate, act), reverse=True)[0]]
+                                              new_webstate, act) if not self.invalid_actions[act] else -1, reverse=True)[0]]
                 # current_page = p, current_state = s
                 prev_webstate = new_webstate
 
@@ -110,9 +118,9 @@ class Crawler:
 
                 # for k, v in self.qlearning.visit_count_table.items():
                 #     print(k, v)
-                for a in new_webstate.valid_actions:
-                    print(a, self.qlearning.calculate_action_weight(
-                                              new_webstate, a))
+                # for a in new_webstate.valid_actions:
+                #     print(a, self.qlearning.calculate_action_weight(
+                #                               new_webstate, a))
 
                 print('\n\n')
                 #################
