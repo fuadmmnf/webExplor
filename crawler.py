@@ -58,7 +58,7 @@ class Crawler:
         def handle_request_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 failure: Failure = Failure(message.text, self.active_page.url)
-                if failure is not in self.application_failures:
+                if failure not in self.application_failures:
                     self.application_failures.append(failure)
 
         #################
