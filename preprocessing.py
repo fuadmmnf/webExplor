@@ -14,18 +14,18 @@ class Preprocessing:
         self.page: pyppeteer.page.Page = page
         self.webstate_set: set[Webstate] = set()
 
-    async def extract_webstate(self, page_url: str, page_html: str) -> Webstate:
+    async def extract_webstate_and_is_new_state(self, page_url: str, page_html: str) -> tuple[Webstate, bool]:
         valid_actions: tuple[Action] = await self._retrieve_valid_elements(page_html, page_url)
         webstate = Webstate(page_url, page_html, valid_actions)  # temporary current page webstate
         for prev_webstate in self.webstate_set:
             if prev_webstate.url != page_url:
                 continue
             if self._is_similar_state(webstate, prev_webstate):
-                return Webstate(prev_webstate.url, prev_webstate.html,
-                                valid_actions)  # return previous webstate due to similarity
+                return (Webstate(prev_webstate.url, prev_webstate.html,
+                                valid_actions), False)  # return previous webstate due to similarity
 
         self.webstate_set.add(webstate)  # update webstate set records
-        return webstate
+        return (webstate, True)
 
     def _is_similar_state(self, webstate1: Webstate, webstate2: Webstate) -> bool:
         # calculate using gestalt pattern matching from difflib package

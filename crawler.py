@@ -65,56 +65,61 @@ class Crawler:
         while True:
             await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
-            prev_webstate: Webstate = await self._get_page_webstate()
+            prev_webstate: Webstate = (await self._get_page_webstate())[0]
             action_sequence: list[Optional[Action]] = [prev_webstate.valid_actions[0]]
+            no_new_state_interval: time = time.time()
             testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0
             while True:
 
-                # apply action here check if error rises in current page environemnt: p, failed := env ( p', act), if failed append current_test in failed_test_cases list
+                # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
+                # if failed append current_test in failed_test_cases list
                 failed = await _perform_action(self.active_page, action_sequence)
                 if failed:
                     failed_test_cases.append(testcase)
 
                 # s, va = get_webstate(p), get new state after performing action(s)
-                new_webstate: Webstate = await self._get_page_webstate()
-
-
+                w: tuple[
+                    Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
+                next_webstate = w[0]
                 # check if stuck for some while
-                ## DUE ##
+                if not w[1] and (time.time() - no_new_state_interval) / 60.0 > 2:
+                    pass  ### DUE - initiate dfa ###
+                else:
+                    no_new_state_interval = time.time()
 
                 # calculate curiosity for transition s`, a, s
                 action = action_sequence[0]
-                if urlparse(new_webstate.url).netloc is not root_domain:
+                if urlparse(next_webstate.url).netloc is not root_domain:
                     self.invalid_actions[action] = True
                     break
 
-                self.qlearning.visit_state(prev_webstate, action, new_webstate)  # track count of state visit
+                self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                if new_webstate is not prev_webstate:
+                if next_webstate is not prev_webstate:
                     self.qlearning.update_q_function(prev_webstate, action)
 
                 # update dfa
                 ## DUE ##
 
                 # append action action to test_case
-                testcase.append((new_webstate, action))
+                testcase.append((next_webstate, action))
 
                 # update available_actions with actions(sorted) of updated state
-                action_sequence = [sorted(new_webstate.valid_actions,
+                action_sequence = [sorted(next_webstate.valid_actions,
                                           key=lambda act: self.qlearning.calculate_action_weight(
-                                              new_webstate, act) if not self.invalid_actions[act] else -1, reverse=True)[0]]
+                                              next_webstate, act) if not self.invalid_actions[act] else -1,
+                                          reverse=True)[0]]
                 # current_page = p, current_state = s
-                prev_webstate = new_webstate
+                prev_webstate = next_webstate
 
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
                 # print(self.qlearning.state_action_count)
                 # print(self.qlearning.q_table)
                 # print(self.qlearning.transition_table)
-
 
                 # for k, v in self.qlearning.visit_count_table.items():
                 #     print(k, v)
@@ -128,16 +133,16 @@ class Crawler:
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
             test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time)/60.0 > 30:
+            if (time.time() - start_time) / 60.0 > 30:
                 break
 
         await self.browser.close()
         return failed_test_cases
 
-    async def _get_page_webstate(self) -> Webstate:
+    async def _get_page_webstate(self) -> tuple[Webstate, bool]:
         preprocessing: Preprocessing = Preprocessing(self.active_page)
-        webstate: Webstate = await preprocessing.extract_webstate(self.active_page.url,
-                                                                  await self.active_page.content())
+        webstate: tuple[Webstate, bool] = await preprocessing.extract_webstate_and_is_new_state(self.active_page.url,
+                                                                                                await self.active_page.content())
         # print(webstate.valid_actions[0])
         return webstate
 
