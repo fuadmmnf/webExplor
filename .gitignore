@@ -4,4 +4,5 @@ __pycache__
 models/__pycache__
 out.txt
 .DS_Store
-test_systems
+test_systems/FSE19-submission-material-DIG
+test_systems/source_codes
