@@ -11,6 +11,7 @@ from preprocessing import Preprocessing
 from qlearning import QLearning
 from models.webstate import Webstate
 from models.action import Action
+from models.failure import Failure
 from pyppeteer.element_handle import ElementHandle
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
@@ -27,6 +28,7 @@ class Crawler:
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
+        self.application_failures: list[Failure] = []
 
     async def init_browser(self) -> None:
         if self.browser is None:
