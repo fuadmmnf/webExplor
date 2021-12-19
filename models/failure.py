@@ -2,8 +2,9 @@ from models.action import Action
 from models.webstate import Webstate
 
 class Failure():
-    def __init__(self, text: str, action: Action = None, webstate: Webstate = None):
+    def __init__(self, text: str, url: str, action: Action = None, webstate: Webstate = None):
         self.text = text
+        self.url = url
         self.action = action
         self.webstate = webstate
         self._hash = hash((self.text, self.action, self.webstate))
@@ -12,10 +13,10 @@ class Failure():
     #     return f'{self.page_url} -> {self.outer_html}'
     #
     def __str__(self) -> str:
-        return f'{self._hash} -> {self.text}'
+        return f'{self._hash} : {self.url} -> {self.text}'
     
     def __repr__(self) -> str:
-        return f'{self._hash} -> {self.text}'
+        return f'{self._hash} : {self.url} -> {self.text}'
 
     def __hash__(self):
         return self._hash
