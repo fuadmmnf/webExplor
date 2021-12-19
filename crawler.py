@@ -66,7 +66,11 @@ class Crawler:
             await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
 
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
-            action_sequence: list[Optional[Action]] = [prev_webstate.valid_actions[0]]
+            action_sequence: list[Optional[Action]] = [sorted(prev_webstate.valid_actions,
+                                                              key=lambda act: self.qlearning.calculate_action_weight(
+                                                                  prev_webstate, act) if not self.invalid_actions[
+                                                                  act] else -1,
+                                                              reverse=True)[0]]
             no_new_state_interval: time = time.time()
             testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0

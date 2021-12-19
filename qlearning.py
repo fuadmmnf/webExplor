@@ -38,8 +38,10 @@ class QLearning:
         antecedent_q_value = 0
 
         for a in to_state.valid_actions if to_state is not None else []:
-            # reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
-            antecedent_q_value = max(antecedent_q_value, self.q_table[(to_state, a)])
+            reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
+            if reaching_state is to_state:
+                continue
+            antecedent_q_value = max(antecedent_q_value, self.q_table[(to_state, a)] if reaching_state is not None else 0)
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
         return self.q_table[(from_state, action)]
@@ -57,6 +59,5 @@ class QLearning:
         #
         # return __calc(state, action) / sum(map(lambda a: __calc(state, a), state.valid_actions))
 
-
-        # return self.update_q_function(state, action)
-        return self.calculate_curiosity(state, action)
+        return self.update_q_function(state, action)
+        # return self.calculate_curiosity(state, action)
