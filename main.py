@@ -9,6 +9,6 @@ def explore_webpage(url: str) -> None:
 
 
 if __name__ == '__main__':
-    websites = ["http://localhost:4200/"]
+    websites = ["http://localhost:3000/"]
     for website in websites:
         explore_webpage(website)

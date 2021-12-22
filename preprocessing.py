@@ -41,6 +41,5 @@ class Preprocessing:
         action_element_htmls: list[str] = list(map(lambda x: str(x), parser.select('input, a, button, select > option')))
         element_handles: list[ElementHandle] = await self.page.querySelectorAll(
             'input, a, button, select')
-        # print(len(action_element_htmls), len(element_handles))
         actionable_elements: tuple[Action] = tuple([Action(e, s, page_url) for (e, s) in zip(element_handles, action_element_htmls)])
         return actionable_elements
