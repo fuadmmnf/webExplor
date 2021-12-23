@@ -23,6 +23,7 @@ class Crawler:
 
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
+        self.preprocessing: Preprocessing = Preprocessing()
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
@@ -31,8 +32,8 @@ class Crawler:
 
     async def init_browser(self) -> None:
         if self.browser is None:
-            self.browser = await launch(headless=False, devtools=True)
-            # self.browser = await launch(headless=False)
+            # self.browser = await launch(headless=False, devtools=True)
+            self.browser = await launch(headless=False)
 
     async def crawl(self) -> list[Testcase]:
 
@@ -40,7 +41,6 @@ class Crawler:
         root_domain: str = urlparse(self.home_url).netloc
         #################
         self.active_page = (await self.browser.pages())[-1]
-
         # @self.active_page.on('error')
         # def handle_error(message):
         #     print(message)
@@ -77,6 +77,7 @@ class Crawler:
             no_new_state_interval: time = time.time()
             testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0
+            print('Starting testing from home page\n\n')
             while True:
 
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
@@ -119,8 +120,6 @@ class Crawler:
                                           key=lambda act: self.qlearning.calculate_action_weight(
                                               next_webstate, act) if not self.invalid_actions[act] else -1,
                                           reverse=True)[0]]
-                # current_page = p, current_state = s
-                prev_webstate = next_webstate
 
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
@@ -130,11 +129,16 @@ class Crawler:
 
                 # for k, v in self.qlearning.visit_count_table.items():
                 #     print(k, v)
+                print(prev_webstate, action, next_webstate)
                 for a in next_webstate.valid_actions:
-                    print(a, self.qlearning.calculate_action_weight(
-                                              next_webstate, a) if not self.invalid_actions[a] else -1)
+                    print(a, self.qlearning.q_table[(
+                                              next_webstate, a)] if not self.invalid_actions[a] else -1)
 
                 print('\n\n')
+
+                # current_page = p, current_state = s
+                prev_webstate = next_webstate
+
                 #################
                 action_sequence_iterator = action_sequence_iterator + 1
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
@@ -147,9 +151,8 @@ class Crawler:
         return failed_test_cases
 
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
-        preprocessing: Preprocessing = Preprocessing(self.active_page)
-        webstate: tuple[Webstate, bool] = await preprocessing.extract_webstate_and_is_new_state(self.active_page.url,
-                                                                                                await self.active_page.content())
+
+        webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
         # print(webstate.valid_actions[0])
         return webstate
 
@@ -165,18 +168,18 @@ class Crawler:
             if valid_action is None:
                 continue
 
-            if await valid_action.boundingBox() is None:
-                self.invalid_actions[valid_action] = True
-                continue
-
             tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
             # print('tag name: ' + tag_name)
             if tag_name == 'A':
                 # for self page navigation
-                link = await (await valid_action.getProperty('href')).jsonValue()
-                await page.goto(link.__str__())
+                # link = await (await valid_action.getProperty('href')).jsonValue()
+                # if link == 'javascript:void(0)':
+                #     self.invalid_actions[valid_action] = True
+                #     continue
+                #
+                # await page.goto(link.__str__())
                 #######
-                # await valid_action.click()
+                await valid_action.click()
             elif tag_name == 'BUTTON':
                 await valid_action.click()
             elif tag_name == 'SELECT':

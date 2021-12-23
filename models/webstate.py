@@ -7,7 +7,7 @@ class Webstate:
         self.url: str = url
         self.html: str = html
         self.valid_actions: tuple[Action] = [] if valid_actions is None else valid_actions
-        self._hash = hash((self.url, self.valid_actions))
+        self._hash = hash((self.url, self.html))
     def __repr__(self) -> str:
         return f'{self._hash}'
 

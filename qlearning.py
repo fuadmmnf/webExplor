@@ -37,17 +37,19 @@ class QLearning:
 
         antecedent_q_value = 0
 
-        for a in to_state.valid_actions if to_state is not None else []:
-            reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
-            if reaching_state is to_state:
-                continue
-            antecedent_q_value = max(antecedent_q_value, self.q_table[(to_state, a)] if reaching_state is not None else 0)
+        if to_state != from_state:
+            for a in to_state.valid_actions if to_state is not None else []:
+                reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
+                if reaching_state == to_state:
+                    continue
+                antecedent_q_value = max(antecedent_q_value,
+                                         self.q_table[(to_state, a)] if reaching_state is not None else 0)
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
         return self.q_table[(from_state, action)]
 
     def _get_count(self, from_state: Webstate, action: Action, to_state: Webstate = None) -> int:
-        return self.state_action_count[(from_state, action)] if to_state is None else self.visit_count_table[
+        return self.state_action_count[(from_state, action)] if to_state == None else self.visit_count_table[
             (from_state, action, to_state)]
 
     def calculate_curiosity(self, from_state: Webstate, action: Action, to_state: Webstate = None) -> float:
