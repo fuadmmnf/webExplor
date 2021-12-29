@@ -1,7 +1,6 @@
 import random
 import os
 import time
-import asyncio
 from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
@@ -10,6 +9,7 @@ import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
 from qlearning import QLearning
+from dfa import DFA
 from models.webstate import Webstate
 from models.action import Action
 from models.failure import Failure
@@ -25,6 +25,7 @@ class Crawler:
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
         self.preprocessing: Preprocessing = Preprocessing()
+        self.dfa = DFA()
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
@@ -36,27 +37,24 @@ class Crawler:
             self.browser = await launch(headless=False, devtools=True)
             # self.browser = await launch(headless=False)
 
+    async def _restart_env(self):
+        await self.browser.newPage()
+        await (await self.browser.pages())[0].close()
+        self.active_page = (await self.browser.pages())[-1]
+        await self.active_page.goto(self.home_url, {'timeout': 0, 'waitUntil': 'networkidle0'})
+        print('Starting testing from home page\n\n')
+
+        @self.active_page.on('console')
+        def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+            if message.type == 'error':
+                failure: Failure = Failure(message.text, self.active_page.url)
+                if failure not in self.application_failures:
+                    self.application_failures.append(failure)
+
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
         root_domain: str = urlparse(self.home_url).netloc
-        #################
-        # self.active_page = (await self.browser.pages())[-1]
-        # @self.active_page.on('error')
-        # def handle_error(message):
-        #     print(message)
-        #
-        # @self.active_page.on('pageerror')
-        # def handle_page_error(message):
-        #     print(message)
-
-        # @self.active_page.on('requestfailed')
-        # def handle_request_error(message: Request):
-        #     print(message.failure())
-
-
-
-        #################
 
         failed_test_cases: list[Testcase] = []
         test_case_iterator = 0
@@ -64,18 +62,7 @@ class Crawler:
         no_new_state_interval: time = time.time()
 
         while True:
-            await self.browser.newPage()
-            await (await self.browser.pages())[0].close()
-            self.active_page = (await self.browser.pages())[-1]
-            await self.active_page.goto(self.home_url, {'timeout': 0, 'waitUntil': 'networkidle0'})
-            print('Starting testing from home page\n\n')
-
-            @self.active_page.on('console')
-            def handle_request_error(message: pyppeteer.page.ConsoleMessage):
-                if message.type == 'error':
-                    failure: Failure = Failure(message.text, self.active_page.url)
-                    if failure not in self.application_failures:
-                        self.application_failures.append(failure)
+            await self._restart_env()
 
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
             action_sequence: list[Optional[Action]] = [sorted(prev_webstate.valid_actions,
@@ -101,7 +88,11 @@ class Crawler:
                 next_webstate = w[0]
                 # check if stuck for some while
                 if not w[1] and (time.time() - no_new_state_interval) / 60.0 > 2:
-                    pass  ### DUE - initiate dfa ###
+                    # pass  ### DUE - initiate dfa ###
+                    await self._restart_env()
+                    action_sequence = self.qlearning.generate_most_curious_action_trace()
+                    action_sequence_iterator = len(action_sequence)
+                    continue
                 else:
                     no_new_state_interval = time.time()
 
@@ -112,6 +103,7 @@ class Crawler:
                     break
 
                 self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
+
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
@@ -156,9 +148,11 @@ class Crawler:
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
             test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > 30:
+            if (time.time() - start_time) / 60.0 > 5:
                 break
 
+        print('Failures: \n\n\n\n\n\n ')
+        print(self.application_failures)
         await self.browser.close()
         return failed_test_cases
 
