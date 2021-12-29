@@ -32,15 +32,15 @@ class Crawler:
 
     async def init_browser(self) -> None:
         if self.browser is None:
-            # self.browser = await launch(headless=False, devtools=True)
-            self.browser = await launch(headless=False)
+            self.browser = await launch(headless=False, devtools=True)
+            # self.browser = await launch(headless=False)
 
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
         root_domain: str = urlparse(self.home_url).netloc
         #################
-        self.active_page = (await self.browser.pages())[-1]
+        # self.active_page = (await self.browser.pages())[-1]
         # @self.active_page.on('error')
         # def handle_error(message):
         #     print(message)
@@ -53,12 +53,7 @@ class Crawler:
         # def handle_request_error(message: Request):
         #     print(message.failure())
 
-        @self.active_page.on('console')
-        def handle_request_error(message: pyppeteer.page.ConsoleMessage):
-            if message.type == 'error':
-                failure: Failure = Failure(message.text, self.active_page.url)
-                if failure not in self.application_failures:
-                    self.application_failures.append(failure)
+
 
         #################
 
@@ -66,7 +61,19 @@ class Crawler:
         test_case_iterator = 0
         start_time: time = time.time()
         while True:
-            await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
+            print('asdsa')
+            await self.browser.newPage()
+            await (await self.browser.pages())[0].close()
+            self.active_page = (await self.browser.pages())[-1]
+            await self.active_page.goto(self.home_url, {'timeout': 0, 'waitUntil': 'networkidle0'})
+            print('Starting testing from home page\n\n')
+
+            @self.active_page.on('console')
+            def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+                if message.type == 'error':
+                    failure: Failure = Failure(message.text, self.active_page.url)
+                    if failure not in self.application_failures:
+                        self.application_failures.append(failure)
 
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
             action_sequence: list[Optional[Action]] = [sorted(prev_webstate.valid_actions,
@@ -77,7 +84,6 @@ class Crawler:
             no_new_state_interval: time = time.time()
             testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0
-            print('Starting testing from home page\n\n')
             while True:
 
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
