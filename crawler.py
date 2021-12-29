@@ -1,6 +1,7 @@
 import random
 import os
 import time
+import asyncio
 from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
@@ -60,8 +61,9 @@ class Crawler:
         failed_test_cases: list[Testcase] = []
         test_case_iterator = 0
         start_time: time = time.time()
+        no_new_state_interval: time = time.time()
+
         while True:
-            print('asdsa')
             await self.browser.newPage()
             await (await self.browser.pages())[0].close()
             self.active_page = (await self.browser.pages())[-1]
@@ -81,14 +83,15 @@ class Crawler:
                                                                   prev_webstate, act) if not self.invalid_actions[
                                                                   act] else -1,
                                                               reverse=True)[0]]
-            no_new_state_interval: time = time.time()
             testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0
             while True:
 
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
                 # if failed append current_test in failed_test_cases list
+                print('prev url: ', self.active_page.url)
                 failed = await self._perform_action(self.active_page, action_sequence)
+                print('next url: ', self.active_page.url)
                 if failed:
                     failed_test_cases.append(testcase)
 
@@ -112,8 +115,7 @@ class Crawler:
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                if next_webstate is not prev_webstate:
-                    self.qlearning.update_q_function(prev_webstate, action)
+                # self.qlearning.update_q_function(prev_webstate, action)
 
                 # update dfa
                 ## DUE ##
@@ -135,7 +137,11 @@ class Crawler:
 
                 # for k, v in self.qlearning.visit_count_table.items():
                 #     print(k, v)
+                # w: tuple[
+                #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
+                # demo_webstate = w[0]
                 print(prev_webstate, action, next_webstate)
+                # print('urls: ', prev_webstate.url, next_webstate.url)
                 for a in next_webstate.valid_actions:
                     print(a, self.qlearning.q_table[(
                                               next_webstate, a)] if not self.invalid_actions[a] else -1)
@@ -186,6 +192,7 @@ class Crawler:
                 # await page.goto(link.__str__())
                 #######
                 await valid_action.click()
+
             elif tag_name == 'BUTTON':
                 await valid_action.click()
             elif tag_name == 'SELECT':
@@ -257,4 +264,5 @@ class Crawler:
         ## DUE ##
 
         # await page.waitForNavigation({'waitUntil': 'networkidle0'})
+        await self.active_page.waitFor(50)
         return is_failing

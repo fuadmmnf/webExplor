@@ -39,6 +39,7 @@ class Preprocessing:
                 return (Webstate(prev_webstate.url, prev_webstate.html,
                                  valid_actions), False)  # return previous webstate due to similarity
         self.webstate_set.add(webstate)  # update webstate set records
+        print(self.webstate_set)
         return webstate, True
 
     def _is_similar_state(self, webstate1: Webstate, webstate2: Webstate) -> bool:
@@ -46,4 +47,5 @@ class Preprocessing:
         soup1, soup2 = BeautifulSoup(webstate1.html, "html.parser"), BeautifulSoup(webstate2.html, "html.parser")
         tags1, tags2 = [str(tag) for tag in soup1.find_all()], [str(tag) for tag in soup2.find_all()]
         similarity = SequenceMatcher(None, tags1, tags2).ratio()
+        print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
         return similarity >= self.SIMILARITY_THRESHOLD
