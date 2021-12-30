@@ -9,7 +9,6 @@ import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
 from qlearning import QLearning
-from dfa import DFA
 from models.webstate import Webstate
 from models.action import Action
 from models.failure import Failure
@@ -25,7 +24,6 @@ class Crawler:
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
         self.preprocessing: Preprocessing = Preprocessing()
-        self.dfa = DFA()
         self.home_url: str = home_url
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
@@ -34,8 +32,8 @@ class Crawler:
 
     async def init_browser(self) -> None:
         if self.browser is None:
-            self.browser = await launch(headless=False, devtools=True)
-            # self.browser = await launch(headless=False)
+            # self.browser = await launch(headless=False, devtools=True)
+            self.browser = await launch(headless=False)
 
     async def _restart_env(self):
         await self.browser.newPage()
@@ -51,6 +49,16 @@ class Crawler:
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
 
+    def _get_action_sequence(self, webstate: Webstate):
+        sorted_actions = sorted(webstate.valid_actions,
+                                key=lambda act: self.qlearning.calculate_action_weight(
+                                    webstate, act) if not self.invalid_actions[act] else -1,
+                                reverse=True)
+        best_action_q_val = self.qlearning.q_table[webstate, sorted_actions[0]]
+        action_sequence = [random.choice(
+            [a for a in sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])]
+        return action_sequence
+
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
@@ -65,11 +73,8 @@ class Crawler:
             await self._restart_env()
 
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
-            action_sequence: list[Optional[Action]] = [sorted(prev_webstate.valid_actions,
-                                                              key=lambda act: self.qlearning.calculate_action_weight(
-                                                                  prev_webstate, act) if not self.invalid_actions[
-                                                                  act] else -1,
-                                                              reverse=True)[0]]
+
+            action_sequence = self._get_action_sequence(prev_webstate)
             testcase: Testcase = [(prev_webstate, action_sequence[0])]
             action_sequence_iterator = 0
             while True:
@@ -87,11 +92,13 @@ class Crawler:
                     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                 next_webstate = w[0]
                 # check if stuck for some while
-                if not w[1] and (time.time() - no_new_state_interval) / 60.0 > 2:
+                if not w[1] and ((time.time() - no_new_state_interval) / 60.0 > .5):
                     # pass  ### DUE - initiate dfa ###
                     await self._restart_env()
                     action_sequence = self.qlearning.generate_most_curious_action_trace()
+                    print('dfa', action_sequence)
                     action_sequence_iterator = len(action_sequence)
+                    no_new_state_interval = time.time()
                     continue
                 else:
                     no_new_state_interval = time.time()
@@ -116,11 +123,7 @@ class Crawler:
                 testcase.append((next_webstate, action))
 
                 # update available_actions with actions(sorted) of updated state
-                action_sequence = [sorted(next_webstate.valid_actions,
-                                          key=lambda act: self.qlearning.calculate_action_weight(
-                                              next_webstate, act) if not self.invalid_actions[act] else -1,
-                                          reverse=True)[0]]
-
+                action_sequence = self._get_action_sequence(next_webstate)
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
                 # print(self.qlearning.state_action_count)
@@ -148,7 +151,7 @@ class Crawler:
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
             test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > 5:
+            if (time.time() - start_time) / 60.0 > 2:
                 break
 
         print('Failures: \n\n\n\n\n\n ')

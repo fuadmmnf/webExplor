@@ -19,7 +19,7 @@ class QLearning:
         self.visit_count_table: dict[Transition, int] = defaultdict(lambda: 1, {})
         # track count of (s`, a, s) each time action a taken + update key if new state found
         self.state_action_count: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 1, {})
-        self.q_table: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0, {})
+        self.q_table: dict[tuple[Webstate, Action], float] = defaultdict(lambda: 1, {})
         self.transition_table: dict[tuple[Webstate, Action], Optional[Webstate]] = defaultdict(lambda: None, {})
         # state-action pair count recursively
 
@@ -40,13 +40,13 @@ class QLearning:
 
         antecedent_q_value = 0
 
-        if to_state != from_state:
-            for a in to_state.valid_actions if to_state is not None else []:
-                reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
-                if reaching_state == to_state or reaching_state is None:
-                    continue
-                antecedent_q_value = max(antecedent_q_value,
-                                         self.q_table[(to_state, a)])
+        # if to_state != from_state:
+        for a in to_state.valid_actions if to_state is not None else []:
+            # reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
+            # if reaching_state == to_state or reaching_state is None:
+            #     continue
+            antecedent_q_value = max(antecedent_q_value,
+                                     self.q_table[(to_state, a)])
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * antecedent_q_value)
         return self.q_table[(from_state, action)]
@@ -73,5 +73,6 @@ class QLearning:
 
     def generate_most_curious_action_trace(self) -> list[Optional[Action]]:
         visit_tuple: Transition = min(self.visit_count_table, key=self.visit_count_table.get)
-        shortest_path_edges: list[Transition] = find_path(self._graph, visit_tuple[0], visit_tuple[1], cost_func=lambda a, b, c, d: 1).edges
+        shortest_path_edges: list[Transition] = find_path(self._graph, visit_tuple[0], visit_tuple[1],
+                                                          cost_func=lambda a, b, c, d: 1).edges
         return list(map(lambda t: t[1], shortest_path_edges))
