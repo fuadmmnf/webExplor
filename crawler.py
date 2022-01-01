@@ -51,22 +51,30 @@ class Crawler:
                     self.application_failures.append(failure)
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
-        if random.uniform(0, 1) < self.EPSILON:
-            count_sorted_actions = sorted(webstate.valid_actions,
-                                          key=lambda act: self.qlearning.state_action_count[(webstate, act)])
-            best_action_curiosity = self.qlearning.state_action_count[
-                webstate, count_sorted_actions[0]]  # Explore action space
-            action = random.choice(
-                [a for a in count_sorted_actions if
-                 self.qlearning.state_action_count[webstate, a] == best_action_curiosity])
-        else:
-            q_value_sorted_actions = sorted(webstate.valid_actions,
-                                            key=lambda act: self.qlearning.q_table[(
-                                                webstate, act)] if not self.invalid_actions[act] else -1,
-                                            reverse=True)
-            best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
-            action = random.choice(
-                [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
+        # if random.uniform(0, 1) < self.EPSILON:
+        #     count_sorted_actions = sorted(webstate.valid_actions,
+        #                                   key=lambda act: self.qlearning.state_action_count[(webstate, act)])
+        #     best_action_curiosity = self.qlearning.state_action_count[
+        #         webstate, count_sorted_actions[0]]  # Explore action space
+        #     action = random.choice(
+        #         [a for a in count_sorted_actions if
+        #          self.qlearning.state_action_count[webstate, a] == best_action_curiosity])
+        # else:
+        #     q_value_sorted_actions = sorted(webstate.valid_actions,
+        #                                     key=lambda act: self.qlearning.calculate_action_weight(
+        #                                         webstate, act) if not self.invalid_actions[act] else -1,
+        #                                     reverse=True)
+        #     best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
+        #     action = random.choice(
+        #         [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
+
+        q_value_sorted_actions = sorted(webstate.valid_actions,
+                                        key=lambda act: self.qlearning.calculate_action_weight(
+                                            webstate, act) if not self.invalid_actions[act] else -1,
+                                        reverse=True)
+        best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
+        action = random.choice(
+            [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
 
         return action
 

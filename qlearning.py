@@ -1,4 +1,5 @@
 import math
+import numpy.random
 from collections import defaultdict
 from typing import Optional
 from dijkstar import Graph, find_path
@@ -61,7 +62,8 @@ class QLearning:
 
     def calculate_action_weight(self, state: Webstate, action: Optional[Action]) -> float:
         def __calc(s, a):
-            return math.exp((self.q_table[(s, a)] + a.g_iid) / self.GUMBEL_SOFTMAX_TAU)
+            g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
+            return math.exp((self.q_table[(s, a)] + g_iid) / self.GUMBEL_SOFTMAX_TAU)
 
         return __calc(state, action) / sum(map(lambda a: __calc(state, a), state.valid_actions))
 
