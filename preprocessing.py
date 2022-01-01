@@ -19,6 +19,7 @@ async def _retrieve_valid_elements(page: pyppeteer.page.Page, page_html: str, pa
         [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
          zip(element_handles, action_element_htmls)])
     actionable_elements: tuple[Action] = tuple(list(filter(None, actionable_elements)))  # filtering hidden actions
+
     return actionable_elements
 
 
@@ -39,7 +40,7 @@ class Preprocessing:
                 return (Webstate(prev_webstate.url, prev_webstate.html,
                                  valid_actions), False)  # return previous webstate due to similarity
         self.webstate_set.add(webstate)  # update webstate set records
-        print(self.webstate_set)
+        # print(self.webstate_set)
         return webstate, True
 
     def _is_similar_state(self, webstate1: Webstate, webstate2: Webstate) -> bool:
@@ -47,5 +48,5 @@ class Preprocessing:
         soup1, soup2 = BeautifulSoup(webstate1.html, "html.parser"), BeautifulSoup(webstate2.html, "html.parser")
         tags1, tags2 = [str(tag) for tag in soup1.find_all()], [str(tag) for tag in soup2.find_all()]
         similarity = SequenceMatcher(None, tags1, tags2).ratio()
-        print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
+        # print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
         return similarity >= self.SIMILARITY_THRESHOLD

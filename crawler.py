@@ -40,6 +40,7 @@ class Crawler:
         await self.browser.newPage()
         await (await self.browser.pages())[0].close()
         self.active_page = (await self.browser.pages())[-1]
+        # await self.active_page.setViewport({'width': 1366, 'height': 768})
         await self.active_page.goto(self.home_url, {'timeout': 0, 'waitUntil': 'networkidle0'})
         print('Starting testing from home page\n\n')
 
@@ -70,13 +71,12 @@ class Crawler:
 
         q_value_sorted_actions = sorted(webstate.valid_actions,
                                         key=lambda act: self.qlearning.calculate_action_weight(
-                                            webstate, act) if not self.invalid_actions[act] else -1,
-                                        reverse=True)
-        best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
-        action = random.choice(
-            [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
+                                            webstate, act) if not self.invalid_actions[act] else -1)
+        # best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
+        # action = random.choice(
+        #     [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
 
-        return action
+        return q_value_sorted_actions[0]
 
     async def crawl(self) -> list[Testcase]:
 
@@ -100,6 +100,7 @@ class Crawler:
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
                 # if failed append current_test in failed_test_cases list
                 # print('prev url: ', self.active_page.url)
+
                 failed = await self._perform_action(self.active_page, action_sequence)
                 # print('next url: ', self.active_page.url)
                 if failed:
@@ -133,7 +134,9 @@ class Crawler:
 
                 # train policy for state
                 self.qlearning.update_q_function(prev_webstate, action)
-
+                # update q table for antecedant state, action pairs, recursively
+                # for antecedent_webstate, antecedent_action in reversed(testcase):
+                #     self.qlearning.update_q_function(antecedent_webstate, antecedent_action)
                 # update dfa
                 ## DUE ##
 
@@ -141,7 +144,7 @@ class Crawler:
                 testcase.append((next_webstate, action))
 
                 # update available_actions with actions(sorted) of updated state
-                action_sequence = [self._select_epsilon_greedy_action(prev_webstate)]
+                action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
                 # print(self.qlearning.state_action_count)
@@ -198,7 +201,8 @@ class Crawler:
             # print('tag name: ' + tag_name)
             if tag_name == 'A':
                 # for self page navigation
-                # link = await (await valid_action.getProperty('href')).jsonValue()
+                link = await (await valid_action.getProperty('href')).jsonValue()
+                print(link)
                 # if link == 'javascript:void(0)':
                 #     self.invalid_actions[valid_action] = True
                 #     continue
@@ -279,5 +283,5 @@ class Crawler:
         ## DUE ##
 
         # await page.waitForNavigation({'waitUntil': 'networkidle0'})
-        await self.active_page.waitFor(50)
+        await self.active_page.waitFor(300)
         return is_failing
