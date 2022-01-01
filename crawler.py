@@ -124,7 +124,7 @@ class Crawler:
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                # self.qlearning.update_q_function(prev_webstate, action)
+                self.qlearning.update_q_function(prev_webstate, action)
 
                 # update dfa
                 ## DUE ##

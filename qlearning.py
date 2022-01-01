@@ -20,7 +20,8 @@ class QLearning:
         # track count of (s`, a, s) each time action a taken + update key if new state found
         self.state_action_count: dict[tuple[Webstate, Optional[Action]], int] = defaultdict(lambda: 1, {})
         self.q_table: dict[tuple[Webstate, Optional[Action]], float] = defaultdict(lambda: 0, {})
-        self.transition_table: dict[tuple[Webstate, Optional[Action]], Optional[Webstate]] = defaultdict(lambda: None, {})
+        self.transition_table: dict[tuple[Webstate, Optional[Action]], Optional[Webstate]] = defaultdict(lambda: None,
+                                                                                                         {})
         # state-action pair count recursively
 
     def visit_state(self, from_state: Webstate, action: Optional[Action], to_state: Webstate) -> None:
@@ -46,7 +47,7 @@ class QLearning:
             # if reaching_state == to_state or reaching_state is None:
             #     continue
             decendent_q_value = max(decendent_q_value,
-                                     self.q_table[(to_state, a)])
+                                    self.q_table[(to_state, a)])
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * decendent_q_value)
         return self.q_table[(from_state, action)]
