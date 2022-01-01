@@ -1,7 +1,6 @@
 import asyncio
 from crawler import Crawler
 
-
 def explore_webpage(url: str) -> None:
     # get webpage content
     crawler: Crawler = Crawler(url)

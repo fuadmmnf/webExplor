@@ -20,6 +20,7 @@ class Crawler:
     MAXIMUM_STEPS = 8
     TRACE_SELECTION_INTERVAL = 5
     TIME_BUDGET_MINUTES = 30
+    EPSILON = 0.1
 
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
@@ -49,15 +50,25 @@ class Crawler:
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
 
-    def _get_action_sequence(self, webstate: Webstate):
-        sorted_actions = sorted(webstate.valid_actions,
-                                key=lambda act: self.qlearning.calculate_action_weight(
-                                    webstate, act) if not self.invalid_actions[act] else -1,
-                                reverse=True)
-        best_action_q_val = self.qlearning.q_table[webstate, sorted_actions[0]]
-        action_sequence = [random.choice(
-            [a for a in sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])]
-        return action_sequence
+    def _select_epsilon_greedy_action(self, webstate) -> Action:
+        if random.uniform(0, 1) < self.EPSILON:
+            count_sorted_actions = sorted(webstate.valid_actions,
+                                          key=lambda act: self.qlearning.state_action_count[(webstate, act)])
+            best_action_curiosity = self.qlearning.state_action_count[
+                webstate, count_sorted_actions[0]]  # Explore action space
+            action = random.choice(
+                [a for a in count_sorted_actions if
+                 self.qlearning.state_action_count[webstate, a] == best_action_curiosity])
+        else:
+            q_value_sorted_actions = sorted(webstate.valid_actions,
+                                            key=lambda act: self.qlearning.q_table[(
+                                                webstate, act)] if not self.invalid_actions[act] else -1,
+                                            reverse=True)
+            best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
+            action = random.choice(
+                [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
+
+        return action
 
     async def crawl(self) -> list[Testcase]:
 
@@ -73,17 +84,16 @@ class Crawler:
             await self._restart_env()
 
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
-
-            action_sequence = self._get_action_sequence(prev_webstate)
-            testcase: Testcase = [(prev_webstate, action_sequence[0])]
+            action_sequence = [None]
+            testcase: Testcase = [(prev_webstate, None)]
             action_sequence_iterator = 0
             while True:
 
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
                 # if failed append current_test in failed_test_cases list
-                print('prev url: ', self.active_page.url)
+                # print('prev url: ', self.active_page.url)
                 failed = await self._perform_action(self.active_page, action_sequence)
-                print('next url: ', self.active_page.url)
+                # print('next url: ', self.active_page.url)
                 if failed:
                     failed_test_cases.append(testcase)
 
@@ -123,7 +133,7 @@ class Crawler:
                 testcase.append((next_webstate, action))
 
                 # update available_actions with actions(sorted) of updated state
-                action_sequence = self._get_action_sequence(next_webstate)
+                action_sequence = [self._select_epsilon_greedy_action(prev_webstate)]
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
                 # print(self.qlearning.state_action_count)
@@ -139,7 +149,7 @@ class Crawler:
                 # print('urls: ', prev_webstate.url, next_webstate.url)
                 for a in next_webstate.valid_actions:
                     print(a, self.qlearning.q_table[(
-                                              next_webstate, a)] if not self.invalid_actions[a] else -1)
+                        next_webstate, a)] if not self.invalid_actions[a] else -1)
 
                 print('\n\n')
 
@@ -164,7 +174,6 @@ class Crawler:
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
         # print(webstate.valid_actions[0])
         return webstate
-
 
     async def _perform_action(self, page: pyppeteer.page.Page, valid_actions: list[Optional[Action]]) -> bool:
         is_failing = False
@@ -195,8 +204,9 @@ class Crawler:
             elif tag_name == 'SELECT':
                 options = await valid_action.querySelectorAll('option')
                 if len(options) > 0:
-                    await valid_action.querySelectorEval('option:nth-child(' + str(random.randint(1, len(options))) + ')',
-                                                         '(node => node.selected = true)')
+                    await valid_action.querySelectorEval(
+                        'option:nth-child(' + str(random.randint(1, len(options))) + ')',
+                        '(node => node.selected = true)')
             elif tag_name == 'INPUT':
                 faker: Faker = Faker()
                 input_type = await (await valid_action.getProperty('type')).jsonValue()

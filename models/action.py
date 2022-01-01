@@ -1,3 +1,6 @@
+import math
+
+import numpy.random
 from pyppeteer.element_handle import ElementHandle
 
 
@@ -7,6 +10,7 @@ class Action(ElementHandle):
                          element_handle._page, element_handle._frameManager)
         self.outer_html = outer_html
         self.page_url = page_url
+        self.g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
         self._hash = hash((self.page_url, self.outer_html))
 
     # def __str__(self) -> str:
