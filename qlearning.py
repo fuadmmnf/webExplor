@@ -35,18 +35,18 @@ class QLearning:
         # if from_state is not to_state:
         #     self.update_q_function(visit_tuple[0], visit_tuple[1])
 
-    def update_q_function(self, from_state: Webstate, action: Action, is_back_propagation) -> float:
+    def update_q_function(self, from_state: Webstate, action: Action, only_curiosity: bool) -> float:
         curiosity = self.calculate_curiosity(from_state, action)
         to_state: Webstate = self.transition_table[(from_state, action)]
 
         decendent_q_value = 0
-
-        for a in to_state.valid_actions if to_state is not None else []:  # rewarding only if new state discovered for the first time
-            # reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
-            # if reaching_state == to_state or reaching_state is None:
-            #     continue
-            decendent_q_value = max(decendent_q_value,
-                                    self.q_table[(to_state, a)])
+        if not only_curiosity:
+            for a in to_state.valid_actions if to_state is not None else []:  # rewarding only if new state discovered for the first time
+                # reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
+                # if reaching_state == to_state or reaching_state is None:
+                #     continue
+                decendent_q_value = max(decendent_q_value,
+                                        self.q_table[(to_state, a)])
 
         self.q_table[(from_state, action)] = curiosity + (self.DISCOUNT_FACTOR * decendent_q_value)
 

@@ -94,6 +94,7 @@ class Crawler:
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
             action_sequence = [None]
             testcase: Testcase = [(prev_webstate, None)]
+            backpropagation_state_action = {'states': [], 'actions': []}
             action_sequence_iterator = 0
             while True:
 
@@ -133,11 +134,21 @@ class Crawler:
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                self.qlearning.update_q_function(prev_webstate, action, False)
-                # update q table for antecedant state, action pairs, recursively
-                if self.qlearning.state_action_count[(prev_webstate, action)] == 2:
-                    for antecedent_webstate, antecedent_action in reversed(testcase):
-                        self.qlearning.update_q_function(antecedent_webstate, antecedent_action, True)
+                if next_webstate == prev_webstate:
+                    self.qlearning.update_q_function(prev_webstate, action, True)
+                    backpropagation_state_action['states'].append(prev_webstate)
+                    backpropagation_state_action['actions'].append(prev_webstate)
+
+                elif next_webstate not in backpropagation_state_action['states']:
+                    backpropagation_state_action['states'].append(prev_webstate)
+                    backpropagation_state_action['actions'].append(prev_webstate)
+                else:
+                    self.qlearning.update_q_function(prev_webstate, action, True)
+                    # back propagation
+                    for s, a in reversed(
+                            list(zip(backpropagation_state_action['states'], backpropagation_state_action['actions']))):
+                        self.qlearning.update_q_function(s, a, False)
+                    backpropagation_state_action = {'states': [], 'actions': []}  # clear backpropagation
                 # update dfa
                 ## DUE ##
 
@@ -172,6 +183,11 @@ class Crawler:
                 action_sequence_iterator = action_sequence_iterator + 1
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
+
+            for s, a in reversed(
+                    list(zip(backpropagation_state_action['states'], backpropagation_state_action['actions']))):
+                self.qlearning.update_q_function(s, a, False)
+
             test_case_iterator = test_case_iterator + 1
             if (time.time() - start_time) / 60.0 > 30:
                 break
