@@ -71,7 +71,7 @@ class Crawler:
 
         q_value_sorted_actions = sorted(webstate.valid_actions,
                                         key=lambda act: self.qlearning.calculate_action_weight(
-                                            webstate, act) if not self.invalid_actions[act] else -1)
+                                            webstate, act) if not self.invalid_actions[act] else -1, reverse=True)
         # best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
         # action = random.choice(
         #     [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
@@ -110,16 +110,16 @@ class Crawler:
                 w: tuple[
                     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                 next_webstate = w[0]
+                print(w[1])
                 # check if stuck for some while
-                if not w[1] and ((time.time() - no_new_state_interval) / 60.0 > .5):
+                if (time.time() - no_new_state_interval) / 60.0 > 1:
                     # pass  ### DUE - initiate dfa ###
                     await self._restart_env()
                     action_sequence = self.qlearning.generate_most_curious_action_trace()
-                    print('dfa', action_sequence)
                     action_sequence_iterator = len(action_sequence)
                     no_new_state_interval = time.time()
                     continue
-                else:
+                elif w[1]:
                     no_new_state_interval = time.time()
 
                 # calculate curiosity for transition s`, a, s
@@ -133,10 +133,11 @@ class Crawler:
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                self.qlearning.update_q_function(prev_webstate, action)
+                self.qlearning.update_q_function(prev_webstate, action, False)
                 # update q table for antecedant state, action pairs, recursively
-                # for antecedent_webstate, antecedent_action in reversed(testcase):
-                #     self.qlearning.update_q_function(antecedent_webstate, antecedent_action)
+                if self.qlearning.state_action_count[(prev_webstate, action)] == 2:
+                    for antecedent_webstate, antecedent_action in reversed(testcase):
+                        self.qlearning.update_q_function(antecedent_webstate, antecedent_action, True)
                 # update dfa
                 ## DUE ##
 
@@ -172,12 +173,13 @@ class Crawler:
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
             test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > 2:
+            if (time.time() - start_time) / 60.0 > 30:
                 break
 
         print('Failures: \n\n\n\n\n\n ')
         print(self.application_failures)
         await self.browser.close()
+
         return failed_test_cases
 
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
@@ -222,6 +224,7 @@ class Crawler:
             elif tag_name == 'INPUT':
                 faker: Faker = Faker()
                 input_type = await (await valid_action.getProperty('type')).jsonValue()
+                print(input_type)
                 # print('input type: ' + input_type)
                 if input_type == 'button':
                     await valid_action.click()

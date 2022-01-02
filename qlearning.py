@@ -35,14 +35,13 @@ class QLearning:
         # if from_state is not to_state:
         #     self.update_q_function(visit_tuple[0], visit_tuple[1])
 
-    def update_q_function(self, from_state: Webstate, action: Action) -> float:
+    def update_q_function(self, from_state: Webstate, action: Action, is_back_propagation) -> float:
         curiosity = self.calculate_curiosity(from_state, action)
         to_state: Webstate = self.transition_table[(from_state, action)]
 
         decendent_q_value = 0
 
-        for a in to_state.valid_actions if to_state is not None and (to_state != from_state and self.state_action_count[
-            (from_state, action)] == 2) else []:  # rewarding only if new state discovered for the first time
+        for a in to_state.valid_actions if to_state is not None else []:  # rewarding only if new state discovered for the first time
             # reaching_state: Optional[Webstate] = self.transition_table[(to_state, a)]
             # if reaching_state == to_state or reaching_state is None:
             #     continue
@@ -64,7 +63,7 @@ class QLearning:
         g_iids = dict()
         for a in state.valid_actions:
             g_iids[a] = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
-        print(g_iids)
+
         def __calc(s, a):
             return math.exp((self.q_table[(s, a)] + g_iids[a]) / self.GUMBEL_SOFTMAX_TAU)
 
@@ -79,6 +78,9 @@ class QLearning:
 
     def generate_most_curious_action_trace(self) -> list[Optional[Action]]:
         visit_tuple: Transition = min(self.visit_count_table, key=self.visit_count_table.get)
+        print('transition table', self.transition_table)
+        print('visit tuple', visit_tuple)
         shortest_path_edges: list[Transition] = find_path(self._graph, visit_tuple[0], visit_tuple[1],
                                                           cost_func=lambda a, b, c, d: 1).edges
+        print('edges', shortest_path_edges)
         return list(map(lambda t: t[1], shortest_path_edges))
