@@ -62,7 +62,8 @@ class QLearning:
     def calculate_action_weight(self, state: Webstate, action: Action) -> float:
         g_iids = dict()
         for a in state.valid_actions:
-            g_iids[a] = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
+            # g_iids[a] = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
+            g_iids[a] = numpy.random.gumbel()
 
         def __calc(s, a):
             return math.exp((self.q_table[(s, a)] + g_iids[a]) / self.GUMBEL_SOFTMAX_TAU)
