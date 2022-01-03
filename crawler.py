@@ -73,8 +73,8 @@ class Crawler:
         #         [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
 
         q_value_sorted_actions = sorted(webstate.valid_actions,
-                                        key=lambda act: self.qlearning.calculate_action_weight((
-                                            webstate, act)) if not self.invalid_actions[act] else -1, reverse=True)
+                                        key=lambda act: self.qlearning.calculate_action_weight(
+                                            webstate, act) if not self.invalid_actions[act] else -1, reverse=True)
         # best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
         # action = random.choice(
         #     [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
