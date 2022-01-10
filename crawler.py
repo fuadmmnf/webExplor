@@ -1,5 +1,6 @@
 import random
 import os
+import sys
 import time
 import uuid
 from collections import defaultdict
@@ -23,7 +24,7 @@ class Crawler:
     MAXIMUM_STEPS = 25
     TRACE_SELECTION_INTERVAL = 5
     TIME_BUDGET_MINUTES = 30
-    EPSILON = 0.1
+    EPSILON = 0.5
 
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
@@ -55,14 +56,12 @@ class Crawler:
                     self.application_failures.append(failure)
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
+        sorted_actions = []
         # if random.uniform(0, 1) < self.EPSILON:
-        #     count_sorted_actions = sorted(webstate.valid_actions,
-        #                                   key=lambda act: self.qlearning.state_action_count[(webstate, act)])
-        #     best_action_curiosity = self.qlearning.state_action_count[
-        #         webstate, count_sorted_actions[0]]  # Explore action space
-        #     action = random.choice(
-        #         [a for a in count_sorted_actions if
-        #          self.qlearning.state_action_count[webstate, a] == best_action_curiosity])
+        #     sorted_actions = sorted(webstate.valid_actions,
+        #                             key=lambda act: self.qlearning.state_action_count[(webstate, act)] if not
+        #                             self.invalid_actions[act] else sys.maxsize)
+        #
         # else:
         #     q_value_sorted_actions = sorted(webstate.valid_actions,
         #                                     key=lambda act: self.qlearning.calculate_action_weight(
@@ -76,14 +75,14 @@ class Crawler:
         #                                 key=lambda act: self.qlearning.calculate_action_weight(
         #                                     webstate, act) if not self.invalid_actions[act] else -1, reverse=True)
         #
-        q_value_sorted_actions = sorted(webstate.valid_actions,
-                                        key=lambda act: self.qlearning.q_table[(
-                                            webstate, act)] if not self.invalid_actions[act] else -1, reverse=True)
+        sorted_actions = sorted(webstate.valid_actions,
+                                key=lambda act: self.qlearning.q_table[(
+                                    webstate, act)] if not self.invalid_actions[act] else -1, reverse=True)
         # best_action_q_val = self.qlearning.q_table[webstate, q_value_sorted_actions[0]]  # Exploit learned values
         # action = random.choice(
         #     [a for a in q_value_sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])
 
-        return q_value_sorted_actions[0]
+        return sorted_actions[0]
 
     async def crawl(self) -> list[Testcase]:
 
@@ -120,14 +119,23 @@ class Crawler:
                 next_webstate = w[0]
 
                 # check if stuck for some while
-                if (time.time() - no_new_state_interval) > 10:
+                if (time.time() - no_new_state_interval) / 60.0 > 1:
                     # pass  ### DUE - initiate dfa ###
                     await self._restart_env()
                     prev_webstate: Webstate = (await self._get_page_webstate())[0]
-                    action_sequence = self.qlearning.generate_most_curious_action_trace()
+                    edges = self.qlearning.generate_most_curious_action_trace()
+
+                    action_sequence = list(map(lambda t: t[1], edges))
+                    action_sequence.insert(0, None)
                     action_sequence_iterator = len(action_sequence)
+                    print('DFA', action_sequence_iterator, action_sequence)
+
+                    testcase = list(map(lambda t: (t[0], t[1]), edges))
+                    testcase.insert(0, (prev_webstate, None))
+
                     no_new_state_interval = time.time()
-                    discovered_states: list[Webstate] = [prev_webstate]
+                    discovered_states: list[Webstate] = [t[2] for t in edges]
+                    discovered_states.insert(0, prev_webstate)
                     continue
                 elif w[1]:
                     no_new_state_interval = time.time()
@@ -174,7 +182,6 @@ class Crawler:
                     print(a, self.qlearning.q_table[(
                         next_webstate, a)] if not self.invalid_actions[a] else -1)
 
-
                 print('\n\n')
 
                 # current_page = p, current_state = s
@@ -184,7 +191,6 @@ class Crawler:
                 action_sequence_iterator = action_sequence_iterator + 1
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
-
 
             test_case_iterator = test_case_iterator + 1
             if (time.time() - start_time) / 60.0 > 30:
