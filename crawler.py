@@ -41,12 +41,13 @@ class Crawler:
             self.browser = await launch(headless=False)
 
     async def _restart_env(self):
-        await self.browser.newPage()
-        await (await self.browser.pages())[0].close()
+        # await self.browser.newPage()
+        # await (await self.browser.pages())[0].close()
         self.active_page = (await self.browser.pages())[-1]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
-        await self.active_page.goto(self.home_url, {'timeout': 0, 'waitUntil': 'networkidle0'})
+        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
         print('Starting testing from home page\n\n')
+
 
         @self.active_page.on('console')
         def handle_request_error(message: pyppeteer.page.ConsoleMessage):
@@ -107,8 +108,6 @@ class Crawler:
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
                 # if failed append current_test in failed_test_cases list
                 # print('prev url: ', self.active_page.url)
-                if not action_sequence:
-                    break
 
                 failed = await self._perform_action(self.active_page, action_sequence)
                 # print('next url: ', self.active_page.url)
@@ -154,6 +153,8 @@ class Crawler:
 
                 # train policy for state
                 # self.qlearning.update_q_function(prev_webstate, action, False)
+
+
                 if next_webstate not in discovered_states and next_webstate != prev_webstate:
                     self.qlearning.update_q_function(prev_webstate, action, False)
                     discovered_states.append(next_webstate)
@@ -166,6 +167,9 @@ class Crawler:
                 testcase.append((next_webstate, action))
 
                 # update available_actions with actions(sorted) of updated state
+                if not next_webstate.valid_actions:
+                    break
+
                 action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
@@ -207,7 +211,6 @@ class Crawler:
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
 
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
-        # print(webstate.valid_actions[0])
         return webstate
 
     async def _perform_action(self, page: pyppeteer.page.Page, valid_actions: list[Optional[Action]]) -> bool:
@@ -216,6 +219,7 @@ class Crawler:
         ## DUE ##
 
         # Apply action(s) to page
+        print('valid_actions', valid_actions)
         for valid_action in valid_actions:
 
             if valid_action is None:

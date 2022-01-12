@@ -12,7 +12,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     # elements = BeautifulSoup(page_html, "html.parser").findAll()sequences of lines of text,
     # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
     action_element_htmls: list[str] = list(
-        map(lambda x: str(x), parser.select('input, a, button, select > option')))
+        map(lambda x: f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v}), parser.select('input, a, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
 
@@ -20,7 +20,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
         [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
          zip(element_handles, action_element_htmls)])
     actionable_elements: tuple[Action] = tuple(list(filter(None, actionable_elements)))  # filtering hidden actions
-    tags = [hash(f'{tag.name} {tag.attrs}') for tag in parser()]
+    tags = [hash(f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v})) for tag in parser()]
 
     # tags = tags + [f'{k}="{v}"' for k, v in tag.attrs.items()]
     # tags = [str(t) for t in parser.find('body').findChildren(recursive=False)]
@@ -44,7 +44,7 @@ class Preprocessing:
         page_url, page_html = page.url, await page.content()
         webstate = await _retrieve_webstate(page, page_html, page_url)
         for prev_webstate in self.webstate_set:
-            if prev_webstate.url != page_url:
+            if prev_webstate.url.rstrip('/') != page_url.rstrip('/'):
                 continue
             if self._is_similar_state(webstate, prev_webstate):
                 return (Webstate(prev_webstate.url, prev_webstate.html,
@@ -71,6 +71,7 @@ class Preprocessing:
         similarity = (2 * self._lcsubstring_length(webstate1.tags, webstate2.tags)) / (
                 len(webstate1.tags) + len(webstate2.tags))
         # similarity = SequenceMatcher(None, webstate1.tags, webstate2.tags).ratio()
-
+        # print(webstate1.tags)
+        # print(webstate2.tags)
         print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
         return similarity >= self.SIMILARITY_THRESHOLD
