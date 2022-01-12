@@ -107,6 +107,8 @@ class Crawler:
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
                 # if failed append current_test in failed_test_cases list
                 # print('prev url: ', self.active_page.url)
+                if not action_sequence:
+                    break
 
                 failed = await self._perform_action(self.active_page, action_sequence)
                 # print('next url: ', self.active_page.url)
@@ -193,7 +195,7 @@ class Crawler:
                     break
 
             test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > 30:
+            if (time.time() - start_time) / 60.0 > 5:
                 break
 
         print('Failures: \n\n\n\n\n\n ')
