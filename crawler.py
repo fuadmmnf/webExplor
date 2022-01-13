@@ -100,7 +100,7 @@ class Crawler:
                     next_webstate = w[0]
 
                     # check if stuck for some while
-                    if (time.time() - no_new_state_interval)/60 > 2:
+                    if (time.time() - no_new_state_interval) / 60 > 2:
                         # pass  ### DUE - initiate dfa ###
                         await self._restart_env()
                         prev_webstate: Webstate = (await self._get_page_webstate())[0]
@@ -182,8 +182,8 @@ class Crawler:
             test_case_iterator = test_case_iterator + 1
             if (time.time() - start_time) / 60.0 > 30:
                 break
-
-        print('Failures: \n\n\n\n\n\n ')
+        print("Unique Webstates:", len(self.preprocessing.webstate_set), self.preprocessing.webstate_set)
+        print('Failures: ')
         print(len(self.application_failures), self.application_failures)
         await self.browser.close()
 
