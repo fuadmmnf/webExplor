@@ -19,7 +19,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     actionable_elements: tuple[Optional[Action]] = tuple(
         [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
          zip(element_handles, action_element_htmls)])
-    actionable_elements: tuple[Action] = tuple(list(filter(None, actionable_elements)))  # filtering hidden actions
+    actionable_elements: tuple[Action] = tuple(set(filter(None, actionable_elements)))  # filtering hidden actions
     tags = [hash(f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v})) for tag in parser()]
 
     # tags = tags + [f'{k}="{v}"' for k, v in tag.attrs.items()]
@@ -73,5 +73,5 @@ class Preprocessing:
         # similarity = SequenceMatcher(None, webstate1.tags, webstate2.tags).ratio()
         # print(webstate1.tags)
         # print(webstate2.tags)
-        print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
+        # print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
         return similarity >= self.SIMILARITY_THRESHOLD

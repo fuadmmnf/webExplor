@@ -77,11 +77,12 @@ class QLearning:
         self._graph.add_edge(visit_tuple[0], visit_tuple[2],
                              visit_tuple)  # to match with table from qlearning (s, a, s`)
 
-    def generate_most_curious_action_trace(self) -> list[Transition]:
+    def generate_most_curious_action_trace(self, root_state: Webstate) -> list[Transition]:
         visit_tuple: Transition = min(self.visit_count_table, key=self.visit_count_table.get)
         print('count', self.visit_count_table[visit_tuple], 'tuple: ', visit_tuple)
-        shortest_path_edges: list[Transition] = find_path(self._graph, visit_tuple[0], visit_tuple[2],
+        shortest_path_edges: list[Transition] = find_path(self._graph, root_state, visit_tuple[2],
                                                           cost_func=lambda a, b, c, d: 1).edges
-        return list(map(lambda t: t[2], shortest_path_edges))
+        return shortest_path_edges
+        # return list(map(lambda t: t[2], shortest_path_edges))
         # print('edges', shortest_path_edges)
         # return list(map(lambda t: t[1], shortest_path_edges))
