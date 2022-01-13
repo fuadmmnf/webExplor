@@ -1,4 +1,6 @@
 from pyppeteer.element_handle import ElementHandle
+from hashlib import md5
+
 from models.action import Action
 
 
@@ -8,7 +10,7 @@ class Webstate:
         self.html: str = html
         self.valid_actions: tuple[Action] = [] if valid_actions is None else valid_actions
         self.tags: tuple = [] if tags is None else tags
-        self._hash = hash((self.url, self.tags))
+        self._hash = md5((self.url, self.tags))
 
     def __repr__(self) -> str:
         return f'{self._hash}'

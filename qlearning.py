@@ -64,6 +64,7 @@ class QLearning:
         for a in state.valid_actions:
             g_iids[a] = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
             # g_iids[a] = numpy.random.gumbel()
+
         def __calc(s, a):
             return math.exp((self.q_table[(s, a)] + g_iids[a]) / self.GUMBEL_SOFTMAX_TAU)
 
@@ -78,7 +79,7 @@ class QLearning:
 
     def generate_most_curious_action_trace(self) -> list[Transition]:
         visit_tuple: Transition = min(self.visit_count_table, key=self.visit_count_table.get)
-        print('count', self.visit_count_table[visit_tuple],  'tuple: ', visit_tuple)
+        print('count', self.visit_count_table[visit_tuple], 'tuple: ', visit_tuple)
         shortest_path_edges: list[Transition] = find_path(self._graph, visit_tuple[0], visit_tuple[2],
                                                           cost_func=lambda a, b, c, d: 1).edges
         return list(map(lambda t: t[2], shortest_path_edges))

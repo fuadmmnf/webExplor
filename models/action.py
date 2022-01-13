@@ -1,5 +1,6 @@
 
 from pyppeteer.element_handle import ElementHandle
+from hashlib import md5
 
 
 class Action(ElementHandle):
@@ -9,7 +10,7 @@ class Action(ElementHandle):
         self.outer_html = outer_html
         self.page_url = page_url
         # self.g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
-        self._hash = hash((self.page_url, self.outer_html))
+        self._hash = md5((self.page_url, self.outer_html))
 
     # def __str__(self) -> str:
     #     return f'{self.page_url} -> {self.outer_html}'
