@@ -60,9 +60,9 @@ if [[ $PRODUCTION == "yes"  ]]; then
 	# docker exec --workdir=/home/dimeshift-application -d $CONTAINER_NAME /bin/bash ./run-services-docker.sh
 else
 	if [[ $CONTAINER_NAME != "default" ]]; then
-		docker run -it --workdir=/home/spring-petclinic-angularjs --name=$CONTAINER_NAME --expose 8080 --expose 3306 -p $PORT_APP:8080 -p $PORT_DB:3306 enigmadr/petclinic:latest bash
+		docker run -it --workdir=/home/spring-petclinic-angularjs --name=$CONTAINER_NAME --expose 8080 --expose 3306 -p $PORT_APP:8080 -p $PORT_DB:3306 enigmadr/petclinic:latest 
 	else
-		docker run -it --workdir=/home/spring-petclinic-angularjs --expose 8080 --expose 3306 -p $PORT_APP:8080 -p $PORT_DB:3306 enigmadr/petclinic:latest bash
+		docker run -it --workdir=/home/spring-petclinic-angularjs --expose 8080 --expose 3306 -p $PORT_APP:8080 -p $PORT_DB:3306 enigmadr/petclinic:latest 
 	fi
 fi
 
