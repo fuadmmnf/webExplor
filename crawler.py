@@ -21,8 +21,8 @@ Testcase = list[tuple[Webstate, Optional[Action]]]
 
 
 class Crawler:
-    MAXIMUM_STEPS = 25
-    TRACE_SELECTION_INTERVAL = 5
+    MAXIMUM_STEPS = 9
+    TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
 
@@ -100,7 +100,7 @@ class Crawler:
                     next_webstate = w[0]
 
                     # check if stuck for some while
-                    if len(action_sequence) and (time.time() - no_new_state_interval) / 60 > 0.5:
+                    if len(action_sequence) and (time.time() - no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
                         # pass  ### DUE - initiate dfa ###
                         await self._restart_env()
                         prev_webstate: Webstate = (await self._get_page_webstate())[0]
@@ -180,7 +180,7 @@ class Crawler:
                 except:
                     break
             test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > 15:
+            if (time.time() - start_time) / 60.0 > self.TIME_BUDGET_MINUTES:
                 break
         print("Unique Webstates:", len(self.preprocessing.webstate_set), self.preprocessing.webstate_set)
         print('Failures: ')
