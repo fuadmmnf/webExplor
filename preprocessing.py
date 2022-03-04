@@ -5,6 +5,7 @@ import pyppeteer.page
 from pyppeteer.element_handle import ElementHandle
 from models.webstate import Webstate
 from models.action import Action
+from hashlib import md5
 
 
 async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url: str) -> Webstate:
@@ -12,7 +13,8 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     # elements = BeautifulSoup(page_html, "html.parser").findAll()sequences of lines of text,
     # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
     action_element_htmls: list[str] = list(
-        map(lambda x: f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v}), parser.select('input, a, button, select > option')))
+        map(lambda x: f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v}),
+            parser.select('input, a, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
 
@@ -20,8 +22,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
         [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
          zip(element_handles, action_element_htmls)])
     actionable_elements: tuple[Action] = tuple(set(filter(None, actionable_elements)))  # filtering hidden actions
-    tags = [hash(f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v})) for tag in parser()]
-
+    tags = [f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v}) for tag in parser()]
     # tags = tags + [f'{k}="{v}"' for k, v in tag.attrs.items()]
     # tags = [str(t) for t in parser.find('body').findChildren(recursive=False)]
     # for tag in parser.find('body').findChildren(recursive=True):
@@ -41,7 +42,8 @@ class Preprocessing:
         self.webstate_set: set[Webstate] = set()
 
     async def extract_webstate_and_is_new_state(self, page: pyppeteer.page.Page) -> tuple[Webstate, bool]:
-        page_url, page_html = page.url, await page.content()
+        page_url = page.url
+        page_html = await page.content()
         webstate = await _retrieve_webstate(page, page_html, page_url)
         for prev_webstate in self.webstate_set:
             if prev_webstate.url.rstrip('/') != page_url.rstrip('/'):

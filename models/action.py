@@ -10,7 +10,10 @@ class Action(ElementHandle):
         self.outer_html = outer_html
         self.page_url = page_url
         # self.g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
-        self._hash = hash((self.page_url, self.outer_html))
+        m = md5()
+        for s in (self.page_url, self.outer_html):
+            m.update(s.encode())
+        self._hash = int(m.hexdigest(), 16)
 
     # def __str__(self) -> str:
     #     return f'{self.page_url} -> {self.outer_html}'

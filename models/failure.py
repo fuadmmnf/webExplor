@@ -1,5 +1,6 @@
 from models.action import Action
 from models.webstate import Webstate
+from hashlib import md5
 
 class Failure():
     def __init__(self, text: str, url: str, action: Action = None, webstate: Webstate = None):
@@ -7,7 +8,11 @@ class Failure():
         self.url = url
         self.action = action
         self.webstate = webstate
-        self._hash = hash((self.text, self.action, self.webstate))
+
+        m = md5()
+        for s in (self.text, self.action, self.webstate):
+            m.update(str(s).encode())
+        self._hash = int(m.hexdigest(), 16)
 
     # def __str__(self) -> str:
     #     return f'{self.page_url} -> {self.outer_html}'

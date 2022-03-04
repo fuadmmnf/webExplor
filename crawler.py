@@ -2,7 +2,7 @@ import random
 import os
 import sys
 import time
-import uuid
+import traceback
 from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
@@ -21,9 +21,9 @@ Testcase = list[tuple[Webstate, Optional[Action]]]
 
 
 class Crawler:
-    MAXIMUM_STEPS = 9
+    MAXIMUM_STEPS = 8
     TRACE_SELECTION_INTERVAL = 2
-    TIME_BUDGET_MINUTES = 30
+    TIME_BUDGET_MINUTES = 15
     EPSILON = 0.5
 
     def __init__(self, home_url: str):
@@ -36,17 +36,28 @@ class Crawler:
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
         self.application_failures: list[Failure] = []
 
-    async def init_browser(self) -> None:
-        if self.browser is None:
-            # self.browser = await launch(headless=False, devtools=True)
-            self.browser = await launch(headless=False)
+        self.root_domain: str = urlparse(self.home_url).netloc
+        self.failed_test_cases: list[Testcase] = []
+        self.test_case_iterator = 0
+        self.start_time: time = time.time()
+        self.no_new_state_interval: time = time.time()
 
-    async def _restart_env(self):
+    async def init_browser(self) -> None:
+
+        if self.browser is not None:
+            await self.browser.close()
+            # self.browser = await launch(headless=False, devtools=True)
+        self.browser = await launch(headless=False)
+
+    async def _restart_env(self, wait: bool):
         # await self.browser.newPage()
         # await (await self.browser.pages())[0].close()
         self.active_page = (await self.browser.pages())[-1]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
-        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'})
+        try:
+            await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
+        except Exception as e:
+            return await self.crawl()
         print('Starting testing from home page\n\n')
 
         @self.active_page.on('console')
@@ -55,6 +66,7 @@ class Crawler:
                 failure: Failure = Failure(message.text, self.active_page.url)
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
+                    print("Failure: ", len(self.application_failures), failure)
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = []
@@ -65,129 +77,138 @@ class Crawler:
 
         return sorted_actions[0]
 
+    async def start(self):
+        while True:
+            await self.crawl()  # crawl will close program upon finishing
+
     async def crawl(self) -> list[Testcase]:
 
         await self.init_browser()
-        root_domain: str = urlparse(self.home_url).netloc
-
-        failed_test_cases: list[Testcase] = []
-        test_case_iterator = 0
-        start_time: time = time.time()
-        no_new_state_interval: time = time.time()
 
         while True:
-            await self._restart_env()
-            prev_webstate: Webstate = (await self._get_page_webstate())[0]
-            self.home_state = prev_webstate
-            action_sequence = [None]
-            testcase: Testcase = [(prev_webstate, None)]
-            discovered_states: list[Webstate] = [prev_webstate]
-            action_sequence_iterator = 0
-            while True:
-                try:
-                    # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
-                    # if failed append current_test in failed_test_cases list
-                    # print('prev url: ', self.active_page.url)
-                    action: Action = action_sequence.pop(0)
-                    failed = await self._perform_action(self.active_page, action)
-                    # print('next url: ', self.active_page.url)
-                    if failed:
-                        failed_test_cases.append(testcase)
+            try:
+                await self._restart_env(True)
+                prev_webstate: Webstate = (await self._get_page_webstate())[0]
+                self.home_state = prev_webstate
+                action_sequence = [None]
+                testcase: Testcase = [(prev_webstate, None)]
+                discovered_states: list[Webstate] = [prev_webstate]
+                action_sequence_iterator = 0
+                while True:
+                    try:
+                        # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
+                        # if failed append current_test in failed_test_cases list
+                        # print('prev url: ', self.active_page.url)
+                        action: Action = action_sequence.pop(0)
+                        failed = await self._perform_action(self.active_page, action)
+                        # print('next url: ', self.active_page.url)
+                        if failed:
+                            self.failed_test_cases.append(testcase)
 
-                    # s, va = get_webstate(p), get new state after performing action(s)
-                    w: tuple[
-                        Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
-                    next_webstate = w[0]
+                        # s, va = get_webstate(p), get new state after performing action(s)
+                        w: tuple[
+                            Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
+                        next_webstate = w[0]
 
-                    # check if stuck for some while
-                    if len(action_sequence) and (time.time() - no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
-                        # pass  ### DUE - initiate dfa ###
-                        await self._restart_env()
-                        prev_webstate: Webstate = (await self._get_page_webstate())[0]
-                        edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
-                        print('Visit count table for DFA: \n ')
-                        print(self.qlearning.visit_count_table)
-                        print('edges from dfa', edges)
-                        action_sequence = list(map(lambda t: t[1], edges))
-                        action_sequence.insert(0, None)
-                        action_sequence_iterator = 0
-                        print('DFA', action_sequence_iterator, action_sequence)
-                        print('\n')
-                        testcase = [(prev_webstate, None)]
+                        # check if stuck for some while
+                        if len(action_sequence) and (
+                                time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
+                            # pass  ### DUE - initiate dfa ###
+                            await self._restart_env(False)
+                            prev_webstate: Webstate = (await self._get_page_webstate())[0]
+                            edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
+                            print('Visit count table for DFA: \n ')
+                            print(self.qlearning.visit_count_table)
+                            print('edges from dfa', edges)
+                            action_sequence = list(map(lambda t: t[1], edges))
+                            action_sequence.insert(0, None)
+                            action_sequence_iterator = 0
+                            print('DFA', action_sequence_iterator, action_sequence)
+                            print('\n')
+                            testcase = [(prev_webstate, None)]
 
-                        no_new_state_interval = time.time()
-                        discovered_states = [prev_webstate]
-                        continue
-                    elif w[1]:
-                        print('new state found', next_webstate)
-                        no_new_state_interval = time.time()
+                            no_new_state_interval = time.time()
+                            discovered_states = [prev_webstate]
+                            continue
+                        elif w[1]:
+                            print('new state found', next_webstate)
+                            no_new_state_interval = time.time()
 
-                    # calculate curiosity for transition s`, a, s
+                        # calculate curiosity for transition s`, a, s
 
-                    if urlparse(next_webstate.url).netloc != root_domain:
-                        self.invalid_actions[action] = True
-                        break
+                        if urlparse(next_webstate.url).netloc != self.root_domain:
+                            self.invalid_actions[action] = True
+                            break
 
-                    self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
+                        self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
 
-                    # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
+                        # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
-                    # train policy for state
-                    # self.qlearning.update_q_function(prev_webstate, action, False)
+                        # train policy for state
+                        # self.qlearning.update_q_function(prev_webstate, action, False)
 
-                    if next_webstate not in discovered_states and next_webstate != prev_webstate:
-                        self.qlearning.update_q_function(prev_webstate, action, False)
-                        discovered_states.append(next_webstate)
-                    else:
-                        self.qlearning.update_q_function(prev_webstate, action, True)
+                        if next_webstate not in discovered_states and next_webstate != prev_webstate:
+                            self.qlearning.update_q_function(prev_webstate, action, False)
+                            discovered_states.append(next_webstate)
+                        else:
+                            self.qlearning.update_q_function(prev_webstate, action, True)
 
-                    # append action action to test_case
-                    testcase.append((next_webstate, action))
+                        # append action action to test_case
+                        testcase.append((next_webstate, action))
 
-                    # update available_actions with actions(sorted) of updated state
-                    if not next_webstate.valid_actions:
-                        break
+                        # update available_actions with actions(sorted) of updated state
+                        if not next_webstate.valid_actions:
+                            break
 
-                    if len(action_sequence) == 0:
-                        action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
+                        if len(action_sequence) == 0:
+                            action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
 
-                    ########testing q-values#########
-                    # print(self.qlearning.visit_count_table)
-                    # print(self.qlearning.state_action_count)
-                    # print(self.qlearning.q_table)
-                    # print(self.qlearning.transition_table)
+                        ########testing q-values#########
+                        # print(self.qlearning.visit_count_table)
+                        # print(self.qlearning.state_action_count)
+                        # print(self.qlearning.q_table)
+                        # print(self.qlearning.transition_table)
 
-                    # for k, v in self.qlearning.visit_count_table.items():
-                    #     print(k, v)
-                    # w: tuple[
-                    #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
-                    # demo_webstate = w[0]
-                    print(prev_webstate, action, next_webstate, next_webstate.url)
-                    # print('urls: ', prev_webstate.url, next_webstate.url)
-                    for a in next_webstate.valid_actions:
-                        print(a, self.qlearning.q_table[(
-                            next_webstate, a)] if not self.invalid_actions[a] else -1)
+                        # for k, v in self.qlearning.visit_count_table.items():
+                        #     print(k, v)
+                        # w: tuple[
+                        #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
+                        # demo_webstate = w[0]
+                        print(prev_webstate, action, next_webstate, next_webstate.url)
+                        # print('urls: ', prev_webstate.url, next_webstate.url)
+                        for a in next_webstate.valid_actions:
+                            print(a, self.qlearning.q_table[(
+                                next_webstate, a)] if not self.invalid_actions[a] else -1)
 
-                    print('\n\n\n\n')
+                        print('\n\n\n\n')
 
-                    # current_page = p, current_state = s
-                    prev_webstate = next_webstate
+                        # current_page = p, current_state = s
+                        prev_webstate = next_webstate
 
-                    #################
-                    action_sequence_iterator = action_sequence_iterator + 1
-                    if action_sequence_iterator > self.MAXIMUM_STEPS:
-                        break
-                except:
-                    break
-            test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > self.TIME_BUDGET_MINUTES:
+                        #################
+                        action_sequence_iterator = action_sequence_iterator + 1
+                        if action_sequence_iterator > self.MAXIMUM_STEPS:
+                            break
+                    except Exception as e:
+                        print('the error was: ', e)
+                        traceback.print_exc()
+                        return
+                        # return await self.crawl()
+            except Exception as e:
+                traceback.print_exc()
+                return
+                # return await self.crawl()
+
+            test_case_iterator = self.test_case_iterator + 1
+            if (time.time() - self.start_time) / 60.0 > self.TIME_BUDGET_MINUTES:
                 break
         print("Unique Webstates:", len(self.preprocessing.webstate_set), self.preprocessing.webstate_set)
         print('Failures: ')
         print(len(self.application_failures), self.application_failures)
         await self.browser.close()
 
-        return failed_test_cases
+        sys.exit(0)
+        # return self.failed_test_cases
 
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
 
@@ -285,13 +306,13 @@ class Crawler:
                     await valid_action.type(faker.url())
                 elif input_type == 'week':
                     await valid_action.type(faker.date_time().strftime('%Y-W%U'))
-                await self.active_page.waitFor(50)
+
         except:
             self.invalid_actions[valid_action] = True
 
         # Remove page error events for action
         ## DUE ##
-
+        await self.active_page.waitFor(50)
         # await page.waitForNavigation({'waitUntil': 'networkidle0'})
 
         return is_failing
