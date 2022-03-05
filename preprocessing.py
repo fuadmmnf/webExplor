@@ -1,11 +1,9 @@
 from typing import Optional
 from bs4 import BeautifulSoup
-from difflib import SequenceMatcher
 import pyppeteer.page
 from pyppeteer.element_handle import ElementHandle
 from models.webstate import Webstate
 from models.action import Action
-from hashlib import md5
 
 
 async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url: str) -> Webstate:
@@ -22,6 +20,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
         [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
          zip(element_handles, action_element_htmls)])
     actionable_elements: tuple[Action] = tuple(set(filter(None, actionable_elements)))  # filtering hidden actions
+    # tags = [f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v}) for tag in parser()]
     tags = [f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v}) for tag in parser()]
     # tags = tags + [f'{k}="{v}"' for k, v in tag.attrs.items()]
     # tags = [str(t) for t in parser.find('body').findChildren(recursive=False)]

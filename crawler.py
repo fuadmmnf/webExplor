@@ -21,10 +21,12 @@ Testcase = list[tuple[Webstate, Optional[Action]]]
 
 
 class Crawler:
-    MAXIMUM_STEPS = 8
+    MAXIMUM_STEPS = 9
     TRACE_SELECTION_INTERVAL = 2
-    TIME_BUDGET_MINUTES = 15
+    TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
+    IS_HEADLESS_START = False
+
 
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
@@ -47,18 +49,18 @@ class Crawler:
         if self.browser is not None:
             await self.browser.close()
             # self.browser = await launch(headless=False, devtools=True)
-        self.browser = await launch(headless=False)
+        self.browser = await launch(headless=self.IS_HEADLESS_START, args= ['--disable-dev-shm-usage'])
 
     async def _restart_env(self, wait: bool):
         # await self.browser.newPage()
         # await (await self.browser.pages())[0].close()
-        self.active_page = (await self.browser.pages())[-1]
+        self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
         try:
             await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         except Exception as e:
             return await self.crawl()
-        print('Starting testing from home page\n\n')
+        # print('Starting testing from home page\n\n')
 
         @self.active_page.on('console')
         def handle_request_error(message: pyppeteer.page.ConsoleMessage):
@@ -88,6 +90,7 @@ class Crawler:
         while True:
             try:
                 await self._restart_env(True)
+                # input()
                 prev_webstate: Webstate = (await self._get_page_webstate())[0]
                 self.home_state = prev_webstate
                 action_sequence = [None]
@@ -131,7 +134,8 @@ class Crawler:
                             discovered_states = [prev_webstate]
                             continue
                         elif w[1]:
-                            print('new state found', next_webstate)
+                            # print('new state found', next_webstate)
+                            # input("press to pass")
                             no_new_state_interval = time.time()
 
                         # calculate curiosity for transition s`, a, s
@@ -175,12 +179,12 @@ class Crawler:
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
                         print(prev_webstate, action, next_webstate, next_webstate.url)
-                        # print('urls: ', prev_webstate.url, next_webstate.url)
-                        for a in next_webstate.valid_actions:
-                            print(a, self.qlearning.q_table[(
-                                next_webstate, a)] if not self.invalid_actions[a] else -1)
+                        # print('url s: ', prev_webstate.url, next_webstate.url)
+                        # for a in next_webstate.valid_actions:
+                        #     print(a, self.qlearning.q_table[(
+                        #         next_webstate, a)] if not self.invalid_actions[a] else -1)
 
-                        print('\n\n\n\n')
+                        # print('\n\n\n\n')
 
                         # current_page = p, current_state = s
                         prev_webstate = next_webstate
@@ -190,12 +194,12 @@ class Crawler:
                         if action_sequence_iterator > self.MAXIMUM_STEPS:
                             break
                     except Exception as e:
-                        print('the error was: ', e)
-                        traceback.print_exc()
+                        # print('the error was: ', e)
+                        # traceback.print_exc()
                         return
                         # return await self.crawl()
             except Exception as e:
-                traceback.print_exc()
+                # traceback.print_exc()
                 return
                 # return await self.crawl()
 
