@@ -155,13 +155,14 @@ class Crawler:
                         self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
                         if webstate_unique_action_discovered[next_webstate] is None:
                             non_duplicate_actions = [a for a in next_webstate.valid_actions if
-                                                     not action_discovered_dict[a]] # state actions - discovered actions
+                                                     not action_discovered_dict[
+                                                         a]]  # state actions - discovered actions
                             webstate_unique_action_discovered[next_webstate] = non_duplicate_actions
                             for a in non_duplicate_actions:  # make actions found
                                 action_discovered_dict[a] = True
-                        else:
-                            next_webstate.valid_actions = webstate_unique_action_discovered[
-                                next_webstate]  # what if new action found for similar state???
+
+                        next_webstate.valid_actions = webstate_unique_action_discovered[
+                            next_webstate]  # what if new action found for similar state???
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                         # train policy for state
