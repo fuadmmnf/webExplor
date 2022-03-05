@@ -1,4 +1,3 @@
-
 from pyppeteer.element_handle import ElementHandle
 from hashlib import md5
 
@@ -11,7 +10,7 @@ class Action(ElementHandle):
         self.page_url = page_url
         # self.g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
         m = md5()
-        for s in (self.page_url, self.outer_html):
+        for s in tuple(self.outer_html):  # removed url from encoding for duplicate removal
             m.update(s.encode())
         self._hash = int(m.hexdigest(), 16)
 
@@ -20,7 +19,7 @@ class Action(ElementHandle):
     #
     def __str__(self) -> str:
         return f'{self._hash} -> {self.outer_html.split(">")[0]}'
-    
+
     def __repr__(self) -> str:
         return f'{self._hash} -> {self.outer_html.split(">")[0]}'
 
@@ -31,4 +30,4 @@ class Action(ElementHandle):
         return self.__hash__() == other.__hash__()
 
     def __ne__(self, other):
-        return not(self == other)
+        return not (self == other)

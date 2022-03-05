@@ -27,7 +27,6 @@ class Crawler:
     EPSILON = 0.5
     IS_HEADLESS_START = False
 
-
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
         self.preprocessing: Preprocessing = Preprocessing()
@@ -49,7 +48,7 @@ class Crawler:
         if self.browser is not None:
             await self.browser.close()
             # self.browser = await launch(headless=False, devtools=True)
-        self.browser = await launch(headless=self.IS_HEADLESS_START, args= ['--disable-dev-shm-usage'])
+        self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
 
     async def _restart_env(self, wait: bool):
         # await self.browser.newPage()
@@ -60,6 +59,7 @@ class Crawler:
             await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         except Exception as e:
             return await self.crawl()
+
         # print('Starting testing from home page\n\n')
 
         @self.active_page.on('console')
@@ -93,10 +93,16 @@ class Crawler:
                 # input()
                 prev_webstate: Webstate = (await self._get_page_webstate())[0]
                 self.home_state = prev_webstate
+
                 action_sequence = [None]
                 testcase: Testcase = [(prev_webstate, None)]
                 discovered_states: list[Webstate] = [prev_webstate]
                 action_sequence_iterator = 0
+
+                # for duplicate action reduction
+                webstate_unique_action_discovered: dict[Webstate, list[Action]] = defaultdict(lambda: [], {})
+                action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
+
                 while True:
                     try:
                         # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
@@ -114,7 +120,7 @@ class Crawler:
                         next_webstate = w[0]
 
                         # check if stuck for some while
-                        if len(action_sequence) and (
+                        if len(action_sequence) == 0 and (
                                 time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
                             # pass  ### DUE - initiate dfa ###
                             await self._restart_env(False)
@@ -136,7 +142,7 @@ class Crawler:
                         elif w[1]:
                             # print('new state found', next_webstate)
                             # input("press to pass")
-                            no_new_state_interval = time.time()
+                            self.no_new_state_interval = time.time()
 
                         # calculate curiosity for transition s`, a, s
 
@@ -161,7 +167,7 @@ class Crawler:
                         testcase.append((next_webstate, action))
 
                         # update available_actions with actions(sorted) of updated state
-                        if not next_webstate.valid_actions:
+                        if not len(next_webstate.valid_actions):
                             break
 
                         if len(action_sequence) == 0:
