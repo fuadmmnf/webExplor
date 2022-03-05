@@ -150,6 +150,7 @@ class Crawler:
                             self.invalid_actions[action] = True
                             break
 
+
                         self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
