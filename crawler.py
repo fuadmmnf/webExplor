@@ -100,9 +100,11 @@ class Crawler:
                 action_sequence_iterator = 0
 
                 # for duplicate action reduction
-                webstate_unique_action_discovered: dict[Webstate, Optional[list[Action]]] = defaultdict(lambda: None,
-                                                                                                        {})
+                webstate_unique_action_discovered: dict[Webstate, Optional[list[Action, int]]] = defaultdict(
+                    lambda: None, {})  # webstate non duplicate action list with discovery status
                 action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
+                webstate_action_exploration_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: -1,
+                                                                                                   {})  # 0 => unexplored, 1 => active, 2 => complete
 
                 while True:
                     try:
@@ -153,6 +155,7 @@ class Crawler:
 
                         # steps after visiting a state
                         self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
+
                         if webstate_unique_action_discovered[next_webstate] is None:
                             non_duplicate_actions = [a for a in next_webstate.valid_actions if
                                                      not action_discovered_dict[
@@ -160,9 +163,17 @@ class Crawler:
                             webstate_unique_action_discovered[next_webstate] = non_duplicate_actions
                             for a in non_duplicate_actions:  # make actions found
                                 action_discovered_dict[a] = True
+                                webstate_action_exploration_dict[(next_webstate, a)] = 0  # actions unexplored
 
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
+
+                        nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions if
+                                                                  webstate_action_exploration_dict[
+                                                                      (next_webstate, a)] < 2])
+                        webstate_action_exploration_dict[
+                            (prev_webstate, action)] = 1 if nextstate_actions_exploration_left > 0 else 2
+
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                         # train policy for state
