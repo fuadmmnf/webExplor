@@ -70,12 +70,11 @@ class Crawler:
                     self.application_failures.append(failure)
                     print("Failure: ", len(self.application_failures), failure)
 
-    def _select_epsilon_greedy_action(self, webstate) -> Action:
-        sorted_actions = []
-
+    def _select_epsilon_greedy_action(self, webstate, dfs_dict) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
-                                key=lambda act: self.qlearning.calculate_action_weight(
-                                    webstate, act) if not self.invalid_actions[act] else -1, reverse=True)
+                                key=lambda act: [1000, 100, self.qlearning.calculate_action_weight(
+                                    webstate, act)][dfs_dict[(webstate, act)]] if not self.invalid_actions[act] else -1,
+                                reverse=True)  # not dfs, dfs + bfs combination
 
         return sorted_actions[0]
 
@@ -172,7 +171,8 @@ class Crawler:
                                                                   webstate_action_exploration_dict[
                                                                       (next_webstate, a)] < 2])
                         webstate_action_exploration_dict[
-                            (prev_webstate, action)] = 1 if nextstate_actions_exploration_left > 0 else 2
+                            (prev_webstate,
+                             action)] = 1 if nextstate_actions_exploration_left > 0 and prev_webstate != next_webstate else 2
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -193,7 +193,8 @@ class Crawler:
                             break
 
                         if len(action_sequence) == 0:
-                            action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
+                            action_sequence = [self._select_epsilon_greedy_action(webstate=next_webstate,
+                                                                                  dfs_dict=webstate_action_exploration_dict)]
 
                         ########testing q-values#########
                         # print(self.qlearning.visit_count_table)
