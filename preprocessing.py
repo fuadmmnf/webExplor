@@ -40,7 +40,6 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
 
 
 class Preprocessing:
-    SIMILARITY_THRESHOLD = 0.8
 
     def __init__(self) -> None:
         self.webstate_set: set[Webstate] = set()
@@ -52,32 +51,10 @@ class Preprocessing:
         for prev_webstate in self.webstate_set:
             if prev_webstate.url.rstrip('/') != page_url.rstrip('/'):
                 continue
-            if self._is_similar_state(webstate, prev_webstate):
+            if webstate.is_similar_state(prev_webstate):
                 return (Webstate(prev_webstate.url, prev_webstate.html,
                                  webstate.valid_actions, prev_webstate.tags),
                         False)  # return previous webstate due to similarity
         self.webstate_set.add(webstate)  # update webstate set records
         # print(self.webstate_set)
         return webstate, True
-
-    def _lcsubstring_length(self, a, b):
-        table = {}
-        l = 0
-        for i, ca in enumerate(a, 1):
-            for j, cb in enumerate(b, 1):
-                if ca == cb:
-                    table[i, j] = table.get((i - 1, j - 1), 0) + 1
-                    if table[i, j] > l:
-                        l = table[i, j]
-        return l
-
-    def _is_similar_state(self, webstate1: Webstate, webstate2: Webstate) -> bool:
-        # calculate using gestalt pattern matching from difflib package
-
-        similarity = (2 * self._lcsubstring_length(webstate1.tags, webstate2.tags)) / (
-                len(webstate1.tags) + len(webstate2.tags))
-        # similarity = SequenceMatcher(None, webstate1.tags, webstate2.tags).ratio()
-        # print(webstate1.tags)
-        # print(webstate2.tags)
-        # print('similarity: ' + str(similarity) + ' urls: ' + webstate1.url + ' -> ' + webstate2.url)
-        return similarity >= self.SIMILARITY_THRESHOLD

@@ -1,5 +1,3 @@
-import random
-import os
 import sys
 import time
 import traceback
@@ -7,8 +5,6 @@ from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
 
-import numpy.random
-from faker import Faker
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
@@ -257,94 +253,12 @@ class Crawler:
         # print('valid action:', valid_action)
         try:
             if valid_action is None:
-                return
-
-            tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
-            # print('tag name: ' + tag_name)
-            if tag_name == 'A':
-                # for self page navigation
-                link = await (await valid_action.getProperty('href')).jsonValue()
-                # if link == 'javascript:void(0)':
-                #     self.invalid_actions[valid_action] = True
-                #     continue
-                #
-                # await page.goto(link.__str__())
-                #######
-                await valid_action.click()
-
-            elif tag_name == 'BUTTON':
-                await valid_action.click()
-            elif tag_name == 'SELECT':
-                options = await valid_action.querySelectorAll('option')
-                if len(options) > 0:
-                    await valid_action.querySelectorEval(
-                        'option:nth-child(' + str(random.randint(1, len(options))) + ')',
-                        '(node => node.selected = true)')
-            elif tag_name == 'INPUT':
-                faker: Faker = Faker()
-                input_type = await (await valid_action.getProperty('type')).jsonValue()
-                # print('input type: ' + input_type)
-                if input_type == 'button':
-                    await valid_action.click()
-                elif input_type == 'checkbox':
-                    await valid_action.click()
-                elif input_type == 'color':
-                    # not working
-                    # r = lambda: random.randint(0, 255)
-                    # color = '#%02X%02X%02X' % (r(), r(), r())
-                    # print(color)
-                    # await valid_action.type(color)
-                    pass
-
-                elif input_type == 'date':
-                    await valid_action.type(faker.date(pattern='%m-%d-%Y'))
-                elif input_type == 'datetime-local':
-                    await valid_action.type(faker.date_time().strftime('%Y-%m-%dT%H:%M%p'))
-                elif input_type == 'email':
-                    await valid_action.type(faker.email())
-                elif input_type == 'file':
-                    file_path = random.choice(os.listdir(os.path.join(os.path.dirname(__file__), 'res/file_types')))
-                    await valid_action.uploadFile(file_path)
-                elif input_type == 'hidden':
-                    pass
-                elif input_type == 'image':
-                    await valid_action.click()
-                elif input_type == 'month':
-                    await valid_action.type(faker.date_time().strftime('%Y-%m'))
-                elif input_type == 'number':
-                    await valid_action.type(str(random.random() * random.randrange(1000)))
-                elif input_type == 'password':
-                    await valid_action.type(faker.password())
-                elif input_type == 'radio':
-                    await valid_action.click()
-                elif input_type == 'range':
-                    # not working
-                    # rand_range = str(random.randint(0, 100))
-                    # print(rand_range)
-                    # await valid_action.type()
-                    pass
-                elif input_type == 'reset':
-                    await valid_action.click()
-                elif input_type == 'search':  # potential
-                    await valid_action.type(faker.text())
-                elif input_type == 'submit':
-                    await valid_action.click()
-                elif input_type == 'tel':
-                    await valid_action.type(faker.phone_number())
-                elif input_type == 'text':
-                    await valid_action.type(faker.text())
-                elif input_type == 'time':
-                    await valid_action.type(faker.date_time().strftime('%H:%M%p'))
-                elif input_type == 'url':
-                    await valid_action.type(faker.url())
-                elif input_type == 'week':
-                    await valid_action.type(faker.date_time().strftime('%Y-W%U'))
-
+                return is_failing
+            valid_action.interact()
         except:
-            self.invalid_actions[valid_action] = True
+            # self.invalid_actions[valid_action] = True
+            pass
 
-        # Remove page error events for action
-        ## DUE ##
         await self.active_page.waitFor(50)
         # await page.waitForNavigation({'waitUntil': 'networkidle0'})
 
