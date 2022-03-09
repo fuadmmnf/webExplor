@@ -16,10 +16,15 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
 
-    actionable_elements: tuple[Optional[Action]] = tuple(
-        [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
-         zip(element_handles, action_element_htmls)])
-    actionable_elements: tuple[Action] = tuple(set(filter(None, actionable_elements)))  # filtering hidden actions
+    # actionable_elements: tuple[Optional[Action]] = tuple(
+    #     [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
+    #      zip(element_handles, action_element_htmls)])
+    # actionable_elements: tuple[Action] = tuple(set(filter(None, actionable_elements)))  # filtering hidden actions
+
+    actionable_elements: tuple[Action] = tuple(
+        [Action(e, s, page_url) for (e, s) in
+         zip(element_handles, action_element_htmls) if await e.boundingBox() is not None])
+
     # tags = [f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v}) for tag in parser()]
     tags = [f'{tag.name} ' + str({k: v for k, v in tag.attrs.items() if v}) for tag in parser()]
     # tags = tags + [f'{k}="{v}"' for k, v in tag.attrs.items()]

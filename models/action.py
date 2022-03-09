@@ -31,3 +31,7 @@ class Action(ElementHandle):
 
     def __ne__(self, other):
         return not (self == other)
+
+
+    def interact(self):
+        pass
