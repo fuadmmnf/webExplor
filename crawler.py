@@ -166,6 +166,8 @@ class Crawler:
                         nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions if
                                                                   webstate_action_exploration_dict[
                                                                       (next_webstate, a)] < 2])
+
+                        # TO-DO need to define formula for form interaction exploration completeness
                         webstate_action_exploration_dict[
                             (prev_webstate,
                              action)] = 1 if nextstate_actions_exploration_left > 0 and prev_webstate != next_webstate else 2
@@ -217,8 +219,8 @@ class Crawler:
 
                         #################
                         action_sequence_iterator = action_sequence_iterator + 1
-                        if action_sequence_iterator > self.MAXIMUM_STEPS:
-                            break
+                        # if action_sequence_iterator > self.MAXIMUM_STEPS:
+                        #     break
                     except Exception as e:
                         # print('the error was: ', e)
                         # traceback.print_exc()
