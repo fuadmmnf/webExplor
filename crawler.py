@@ -171,7 +171,8 @@ class Crawler:
                             (prev_webstate,
                              action)] = 1 if nextstate_actions_exploration_left > 0 and prev_webstate != next_webstate else 2
 
-                        # print(action)
+
+                        print('valid actions: ', next_webstate.valid_actions)
                         # print(self.webstate_action_exploration_dict, end='\n\n')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
@@ -220,8 +221,8 @@ class Crawler:
 
                         #################
                         action_sequence_iterator = action_sequence_iterator + 1
-                        # if action_sequence_iterator > self.MAXIMUM_STEPS:
-                        #     break
+                        if action_sequence_iterator > self.MAXIMUM_STEPS:
+                            break
                     except Exception as e:
                         # print('the error was: ', e)
                         traceback.print_exc()
