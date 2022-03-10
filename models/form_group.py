@@ -1,5 +1,5 @@
 from pyppeteer.element_handle import ElementHandle
-from action import Action
+from models.action import Action
 from hashlib import md5
 import random
 
@@ -36,14 +36,14 @@ class FormGroup(Action):
     def __ne__(self, other):
         return not (self == other)
 
-    def interact(self):
+    async def interact(self):
         submit_button_handle = None
         self.interaction_sequence = []
         for a in sorted(self.inner_actions, key=lambda k: random.random()):
             if 'type="submit"' in a.outer_html:
                 submit_button_handle = a
                 continue
-            a.interact()
+            await a.interact()
             self.interaction_sequence.append(a)
         await submit_button_handle.click()
         self.interaction_sequence.append(submit_button_handle)

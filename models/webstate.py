@@ -43,8 +43,10 @@ class Webstate:
     def __ne__(self, other):
         return not (self == other)
 
-    def is_similar_state(self, other: models.webstate.Webstate) -> bool:
+    def is_similar_state(self, other) -> bool:
         # calculate using gestalt pattern matching from difflib package
+        if type(other) is not Webstate:
+            return False
 
         similarity = (2 * _lcsubstring_length(self.tags, other.tags)) / (
                 len(self.tags) + len(other.tags))

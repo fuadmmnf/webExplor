@@ -184,7 +184,7 @@ class Crawler:
                             self.qlearning.update_q_function(prev_webstate, action, True)
 
                         # append action action to test_case
-                        for s in action.interaction_sequence:
+                        for s in action.interaction_sequence if action is not None else [None]:
                             testcase.append((next_webstate, s))
 
                         # update available_actions with actions(sorted) of updated state
@@ -223,11 +223,13 @@ class Crawler:
                         #     break
                     except Exception as e:
                         # print('the error was: ', e)
-                        # traceback.print_exc()
+                        traceback.print_exc()
+                        # sys.exit(1)
                         return
                         # return await self.crawl()
             except Exception as e:
-                # traceback.print_exc()
+                traceback.print_exc()
+                # sys.exit(1)
                 return
                 # return await self.crawl()
 
@@ -257,7 +259,7 @@ class Crawler:
         try:
             if valid_action is None:
                 return is_failing
-            valid_action.interact()
+            await valid_action.interact()
         except:
             # self.invalid_actions[valid_action] = True
             pass
