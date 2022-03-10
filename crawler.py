@@ -31,6 +31,8 @@ class Crawler:
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
+        self.webstate_action_exploration_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
+                                                                                                {})  # 0 => unexplored, 1 => active, 2 => complete
         self.application_failures: list[Failure] = []
 
         self.root_domain: str = urlparse(self.home_url).netloc
@@ -66,10 +68,10 @@ class Crawler:
                     self.application_failures.append(failure)
                     print("Failure: ", len(self.application_failures), failure)
 
-    def _select_epsilon_greedy_action(self, webstate, dfs_dict) -> Action:
+    def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
                                 key=lambda act: [1000, 100, self.qlearning.calculate_action_weight(
-                                    webstate, act)][dfs_dict[(webstate, act)]] if not self.invalid_actions[act] else -1,
+                                    webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not self.invalid_actions[act] else -1,
                                 reverse=True)  # not dfs, dfs + bfs combination
 
         return sorted_actions[0]
@@ -98,8 +100,6 @@ class Crawler:
                 webstate_unique_action_discovered: dict[Webstate, Optional[list[Action, int]]] = defaultdict(
                     lambda: None, {})  # webstate non duplicate action list with discovery status
                 action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
-                webstate_action_exploration_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: -1,
-                                                                                                   {})  # 0 => unexplored, 1 => active, 2 => complete
 
                 while True:
                     try:
@@ -158,19 +158,21 @@ class Crawler:
                             webstate_unique_action_discovered[next_webstate] = non_duplicate_actions
                             for a in non_duplicate_actions:  # make actions found
                                 action_discovered_dict[a] = True
-                                webstate_action_exploration_dict[(next_webstate, a)] = 0  # actions unexplored
 
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
                         nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions if
-                                                                  webstate_action_exploration_dict[
+                                                                  self.webstate_action_exploration_dict[
                                                                       (next_webstate, a)] < 2])
 
                         # TO-DO need to define formula for form interaction exploration completeness
-                        webstate_action_exploration_dict[
+                        self.webstate_action_exploration_dict[
                             (prev_webstate,
                              action)] = 1 if nextstate_actions_exploration_left > 0 and prev_webstate != next_webstate else 2
+
+                        print(action)
+                        print(self.webstate_action_exploration_dict, end='\n\n')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -192,8 +194,7 @@ class Crawler:
                             break
 
                         if len(action_sequence) == 0:
-                            action_sequence = [self._select_epsilon_greedy_action(webstate=next_webstate,
-                                                                                  dfs_dict=webstate_action_exploration_dict)]
+                            action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
 
                         ########testing q-values#########
                         # print(self.qlearning.visit_count_table)
