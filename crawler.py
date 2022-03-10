@@ -132,7 +132,7 @@ class Crawler:
                             action_sequence_iterator = 0
                             print('DFA', action_sequence_iterator, action_sequence)
                             print('\n')
-                            testcase = [(prev_webstate, None)]
+                            testcase = [(prev_webstate, None)]  # track resulting webstate and action responsible
 
                             no_new_state_interval = time.time()
                             discovered_states = [prev_webstate]
@@ -182,7 +182,8 @@ class Crawler:
                             self.qlearning.update_q_function(prev_webstate, action, True)
 
                         # append action action to test_case
-                        testcase.append((next_webstate, action))
+                        for s in action.interaction_sequence:
+                            testcase.append((next_webstate, s))
 
                         # update available_actions with actions(sorted) of updated state
                         if not len(next_webstate.valid_actions):

@@ -1,12 +1,12 @@
 from pyppeteer.element_handle import ElementHandle
 from action import Action
 from hashlib import md5
+import random
 
 
-class FormGroup(ElementHandle):
+class FormGroup(Action):
     def __init__(self, element_handle: ElementHandle, outer_html: str, page_url: str, actions: tuple[Action] = None):
-        super().__init__(element_handle._context, element_handle._client, element_handle._remoteObject,
-                         element_handle._page, element_handle._frameManager)
+        super().__init__(element_handle, outer_html, page_url)
         self.outer_html = outer_html
         self.page_url = page_url
 
@@ -17,7 +17,7 @@ class FormGroup(ElementHandle):
                                       self.inner_actions]:  # removed url from encoding for duplicate removal
             m.update(s.encode())
         self._hash = int(m.hexdigest(), 16)
-
+        self.interaction_sequence: list[Action] = []
     # def __str__(self) -> str:
     #     return f'{self.page_url} -> {self.outer_html}'
     #
@@ -37,5 +37,13 @@ class FormGroup(ElementHandle):
         return not (self == other)
 
     def interact(self):
-        for a in self.inner_actions:
+        submit_button_handle = None
+        self.interaction_sequence = []
+        for a in sorted(self.inner_actions, key=lambda k: random.random()):
+            if 'type="submit"' in a.outer_html:
+                submit_button_handle = a
+                continue
             a.interact()
+            self.interaction_sequence.append(a)
+        await submit_button_handle.click()
+        self.interaction_sequence.append(submit_button_handle)

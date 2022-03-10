@@ -17,7 +17,7 @@ class Action(ElementHandle):
         for s in tuple(self.outer_html):  # removed url from encoding for duplicate removal
             m.update(s.encode())
         self._hash = int(m.hexdigest(), 16)
-
+        self.interaction_sequence: list[Action] = [self] # to match with grouping subclasses
     # def __str__(self) -> str:
     #     return f'{self.page_url} -> {self.outer_html}'
     #
@@ -36,7 +36,7 @@ class Action(ElementHandle):
     def __ne__(self, other):
         return not (self == other)
 
-    def interact(self):
+    def interact(self): # all type checking can be optimized by checking html string
         tag_name = await (await self.getProperty('tagName')).jsonValue()
         # print('tag name: ' + tag_name)
         if tag_name == 'A':
