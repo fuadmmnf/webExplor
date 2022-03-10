@@ -171,8 +171,8 @@ class Crawler:
                             (prev_webstate,
                              action)] = 1 if nextstate_actions_exploration_left > 0 and prev_webstate != next_webstate else 2
 
-                        print(action)
-                        print(self.webstate_action_exploration_dict, end='\n\n')
+                        # print(action)
+                        # print(self.webstate_action_exploration_dict, end='\n\n')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -207,7 +207,7 @@ class Crawler:
                         # w: tuple[
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
-                        print(prev_webstate, action, next_webstate, next_webstate.url)
+                        print(prev_webstate, action, next_webstate, next_webstate.url, end='\n\n')
                         # print('url s: ', prev_webstate.url, next_webstate.url)
                         # for a in next_webstate.valid_actions:
                         #     print(a, self.qlearning.q_table[(
@@ -225,12 +225,12 @@ class Crawler:
                     except Exception as e:
                         # print('the error was: ', e)
                         traceback.print_exc()
-                        # sys.exit(1)
+                        sys.exit(1)
                         return
                         # return await self.crawl()
             except Exception as e:
                 traceback.print_exc()
-                # sys.exit(1)
+                sys.exit(1)
                 return
                 # return await self.crawl()
 

@@ -13,7 +13,7 @@ class FormGroup(Action):
         self.inner_actions = [] if actions is None else actions
         # self.g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
         m = md5()
-        for s in [self.outer_html] + [a.__hash__() for a in
+        for s in [self.outer_html] + [str(a.__hash__()) for a in
                                       self.inner_actions]:  # removed url from encoding for duplicate removal
             m.update(s.encode())
         self._hash = int(m.hexdigest(), 16)
@@ -40,7 +40,7 @@ class FormGroup(Action):
         submit_button_handle = None
         self.interaction_sequence = []
         for a in sorted(self.inner_actions, key=lambda k: random.random()):
-            if 'type="submit"' in a.outer_html:
+            if "'type': 'submit'" in a.outer_html:
                 submit_button_handle = a
                 continue
             await a.interact()
