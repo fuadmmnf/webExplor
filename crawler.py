@@ -1,3 +1,4 @@
+import random
 import sys
 import time
 import traceback
@@ -18,7 +19,7 @@ Testcase = list[tuple[Webstate, Optional[Action]]]
 
 
 class Crawler:
-    MAXIMUM_STEPS = 9
+    MAXIMUM_STEPS = 8
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
@@ -73,10 +74,16 @@ class Crawler:
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
-                                key=lambda act: [1000, 100, self.qlearning.calculate_action_weight(
+                                key=lambda act: ([100, 1000, self.qlearning.calculate_action_weight(
                                     webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not
-                                self.invalid_actions[act] else -1,
+                                self.invalid_actions[act] else -1, random.random()),
                                 reverse=True)  # not dfs, dfs + bfs combination
+
+        # sorted_actions = sorted(webstate.valid_actions,
+        #                         key=lambda act: (
+        #                         [100, 1000, 10][self.webstate_action_exploration_dict[(webstate, act)]] if not
+        #                         self.invalid_actions[act] else -1, random.random()),
+        #                         reverse=True)  # not dfs, dfs + bfs combination
 
         return sorted_actions[0]
 
@@ -122,29 +129,29 @@ class Crawler:
                         next_webstate = w[0]
 
                         # check if stuck for some while
-                        if len(action_sequence) == 0 and (
-                                time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
-                            # pass  ### DUE - initiate dfa ###
-                            await self._restart_env(False)
-                            prev_webstate: Webstate = (await self._get_page_webstate())[0]
-                            edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
-                            print('Visit count table for DFA: \n ')
-                            print(self.qlearning.visit_count_table)
-                            print('edges from dfa', edges)
-                            action_sequence = list(map(lambda t: t[1], edges))
-                            action_sequence.insert(0, None)
-                            action_sequence_iterator = 0
-                            print('DFA', action_sequence_iterator, action_sequence)
-                            print('\n')
-                            testcase = [(prev_webstate, None)]  # track resulting webstate and action responsible
-
-                            no_new_state_interval = time.time()
-                            discovered_states = [prev_webstate]
-                            continue
-                        elif w[1]:
-                            # print('new state found', next_webstate)
-                            # input("press to pass")
-                            self.no_new_state_interval = time.time()
+                        # if len(action_sequence) == 0 and (
+                        #         time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
+                        #     # pass  ### DUE - initiate dfa ###
+                        #     await self._restart_env(False)
+                        #     prev_webstate: Webstate = (await self._get_page_webstate())[0]
+                        #     edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
+                        #     print('Visit count table for DFA: \n ')
+                        #     print(self.qlearning.visit_count_table)
+                        #     print('edges from dfa', edges)
+                        #     action_sequence = list(map(lambda t: t[1], edges))
+                        #     action_sequence.insert(0, None)
+                        #     action_sequence_iterator = 0
+                        #     print('DFA', action_sequence_iterator, action_sequence)
+                        #     print('\n')
+                        #     testcase = [(prev_webstate, None)]  # track resulting webstate and action responsible
+                        #
+                        #     no_new_state_interval = time.time()
+                        #     discovered_states = [prev_webstate]
+                        #     continue
+                        # elif w[1]:
+                        #     # print('new state found', next_webstate)
+                        #     # input("press to pass")
+                        #     self.no_new_state_interval = time.time()
 
                         # calculate curiosity for transition s`, a, s
 
@@ -156,7 +163,7 @@ class Crawler:
                         self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
 
                         is_next_state_new_in_execution_trace = webstate_unique_action_discovered[
-                                                                           next_webstate] is None
+                                                                   next_webstate] is None
                         if is_next_state_new_in_execution_trace:
                             non_duplicate_actions = [a for a in next_webstate.valid_actions if
                                                      not action_discovered_dict[
@@ -169,25 +176,8 @@ class Crawler:
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
-                        # TO-DO need to define formula for form interaction exploration completeness
-                        if type(action) is FormGroup:
-                            self.webstate_form_state_dict[(prev_webstate, action)] = max(2,
-                                                                                         self.webstate_form_state_dict[(
-                                                                                         prev_webstate, action)] + 1)
-                            self.webstate_action_exploration_dict[
-                                (prev_webstate,
-                                 action)] = 1 if self.webstate_form_state_dict[(prev_webstate, action)] < 2 else 2
-                        else:
-                            nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions or [] if
-                                                                      self.webstate_action_exploration_dict[
-                                                                          (next_webstate, a)] < 2])
-                            self.webstate_action_exploration_dict[
-                                (prev_webstate,
-                                 action)] = 1 if nextstate_actions_exploration_left > 0 and not is_next_state_new_in_execution_trace else 2
-
-                        if "owners" in next_webstate.url:
-                            print('valid actions: ', next_webstate.valid_actions)
-                        # print(self.webstate_action_exploration_dict, end='\n\n')
+                        if next_webstate.url.endswith("owners/"):
+                            print('exploration dict: ', self.webstate_action_exploration_dict, end='\n\n')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -200,9 +190,30 @@ class Crawler:
                         else:
                             self.qlearning.update_q_function(prev_webstate, action, True)
 
+
+                        # TO-DO need to define formula for form interaction exploration completeness
+                        if type(action) is FormGroup:
+                            self.webstate_form_state_dict[(prev_webstate, action)] = self.webstate_form_state_dict[(
+                                                                                             prev_webstate,
+                                                                                             action)] + 1
+                            self.webstate_action_exploration_dict[
+                                (prev_webstate,
+                                 action)] = 1 if self.webstate_form_state_dict[(prev_webstate, action)] < 2 else 2
+                        else:
+                            nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions or [] if
+                                                                      self.webstate_action_exploration_dict[
+                                                                          (next_webstate, a)] < 2])
+                            self.webstate_action_exploration_dict[
+                                (prev_webstate,
+                                 action)] = 1 if nextstate_actions_exploration_left > 0 and discovered_states.index(prev_webstate) < discovered_states.index(next_webstate) else 2
+
+
+
+
                         # append action action to test_case
                         for s in action.interaction_sequence if action is not None else [None]:
                             testcase.append((next_webstate, s))
+
 
                         # update available_actions with actions(sorted) of updated state
                         if not len(next_webstate.valid_actions or []):
@@ -224,17 +235,18 @@ class Crawler:
                         # demo_webstate = w[0]
                         print(prev_webstate, action, next_webstate, next_webstate.url, end='\n\n')
                         # print('url s: ', prev_webstate.url, next_webstate.url)
-                        # for a in next_webstate.valid_actions:
-                        #     print(a, self.qlearning.q_table[(
-                        #         next_webstate, a)] if not self.invalid_actions[a] else -1)
+                        for a in next_webstate.valid_actions:
+                            print(a, self.qlearning.q_table[(
+                                next_webstate, a)] if not self.invalid_actions[a] else -1)
 
-                        # print('\n\n\n\n')
+                        print('\n\n\n\n')
 
                         # current_page = p, current_state = s
                         prev_webstate = next_webstate
 
                         #################
                         action_sequence_iterator = action_sequence_iterator + 1
+                        print('iterator', action_sequence_iterator)
                         if action_sequence_iterator > self.MAXIMUM_STEPS:
                             break
                     except Exception as e:

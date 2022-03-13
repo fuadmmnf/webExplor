@@ -47,9 +47,22 @@ class FormGroup(Action):
             if state == 0:
                 await a.interact(1)
             elif state == 1:
-                await a.interact(random.randint(0, 2))
+                is_clear = random.randint(0, 2)
+                await a.interact(is_clear)
+                if not is_clear:
+                    self.interaction_sequence.append(a)
             else:
                 await a.interact(0)
+                self.interaction_sequence.append(a)
+
+            # elif state == 2:
+            #     await a.interact(0)
+            #     self.interaction_sequence.append(a)
+            # else:
+            #     is_clear = random.randint(0, 2)
+            #     await a.interact(is_clear)
+            #     if not is_clear:
+            #         self.interaction_sequence.append(a)
             self.interaction_sequence.append(a)
         await submit_button_handle.click()
         self.interaction_sequence.append(submit_button_handle)

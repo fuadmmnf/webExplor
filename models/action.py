@@ -104,6 +104,8 @@ class Action(ElementHandle):
                         await self.type(faker.phone_number())
                     elif input_type == 'text':
                         await self.type(faker.text())
+                        # await self.type(str(random.randint(0, 10000000000)))
+
                     elif input_type == 'time':
                         await self.type(faker.date_time().strftime('%H:%M%p'))
                     elif input_type == 'url':
