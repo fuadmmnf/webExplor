@@ -5,7 +5,12 @@ import traceback
 from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
+import logging
 
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
@@ -70,11 +75,11 @@ class Crawler:
                 failure: Failure = Failure(message.text, self.active_page.url)
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
-                    print("Failure: ", len(self.application_failures), failure)
+                    logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
-                                key=lambda act: ([100, 1000, self.qlearning.calculate_action_weight(
+                                key=lambda act: ([1000, 100, self.qlearning.calculate_action_weight(
                                     webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not
                                 self.invalid_actions[act] else -1, random.random()),
                                 reverse=True)  # not dfs, dfs + bfs combination
@@ -176,8 +181,8 @@ class Crawler:
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
-                        if next_webstate.url.endswith("owners/"):
-                            print('exploration dict: ', self.webstate_action_exploration_dict, end='\n\n')
+                        # if next_webstate.url.endswith("owners/"):
+                        #     logging.info('exploration dict: ', self.webstate_action_exploration_dict)
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -190,12 +195,11 @@ class Crawler:
                         else:
                             self.qlearning.update_q_function(prev_webstate, action, True)
 
-
                         # TO-DO need to define formula for form interaction exploration completeness
                         if type(action) is FormGroup:
                             self.webstate_form_state_dict[(prev_webstate, action)] = self.webstate_form_state_dict[(
-                                                                                             prev_webstate,
-                                                                                             action)] + 1
+                                prev_webstate,
+                                action)] + 1
                             self.webstate_action_exploration_dict[
                                 (prev_webstate,
                                  action)] = 1 if self.webstate_form_state_dict[(prev_webstate, action)] < 2 else 2
@@ -205,15 +209,12 @@ class Crawler:
                                                                           (next_webstate, a)] < 2])
                             self.webstate_action_exploration_dict[
                                 (prev_webstate,
-                                 action)] = 1 if nextstate_actions_exploration_left > 0 and discovered_states.index(prev_webstate) < discovered_states.index(next_webstate) else 2
-
-
-
+                                 action)] = 1 if nextstate_actions_exploration_left > 0 and discovered_states.index(
+                                prev_webstate) < discovered_states.index(next_webstate) else 2
 
                         # append action action to test_case
                         for s in action.interaction_sequence if action is not None else [None]:
                             testcase.append((next_webstate, s))
-
 
                         # update available_actions with actions(sorted) of updated state
                         if not len(next_webstate.valid_actions or []):
@@ -233,20 +234,17 @@ class Crawler:
                         # w: tuple[
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
-                        print(prev_webstate, action, next_webstate, next_webstate.url, end='\n\n')
+                        logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
                         # print('url s: ', prev_webstate.url, next_webstate.url)
                         for a in next_webstate.valid_actions:
-                            print(a, self.qlearning.q_table[(
-                                next_webstate, a)] if not self.invalid_actions[a] else -1)
-
-                        print('\n\n\n\n')
+                            logging.info(
+                                f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
 
                         # current_page = p, current_state = s
                         prev_webstate = next_webstate
 
                         #################
                         action_sequence_iterator = action_sequence_iterator + 1
-                        print('iterator', action_sequence_iterator)
                         if action_sequence_iterator > self.MAXIMUM_STEPS:
                             break
                     except Exception as e:
@@ -264,9 +262,10 @@ class Crawler:
             test_case_iterator = self.test_case_iterator + 1
             if (time.time() - self.start_time) / 60.0 > self.TIME_BUDGET_MINUTES:
                 break
-        print("Unique Webstates:", len(self.preprocessing.webstate_set), self.preprocessing.webstate_set)
-        print('Failures: ')
-        print(len(self.application_failures), self.application_failures)
+        logging.warning(
+            "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
+        logging.warning('Failures: ')
+        logging.warning(str(len(self.application_failures)) + str(self.application_failures))
         await self.browser.close()
 
         sys.exit(0)
