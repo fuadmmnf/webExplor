@@ -34,7 +34,8 @@ class Crawler:
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
         self.webstate_action_exploration_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
                                                                                                 {})  # 0 => unexplored, 1 => active, 2 => complete
-        self.webstate_form_state_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0, {}) # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
+        self.webstate_form_state_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
+                                                                                        {})  # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
         self.application_failures: list[Failure] = []
 
         self.root_domain: str = urlparse(self.home_url).netloc
@@ -154,33 +155,35 @@ class Crawler:
                         # steps after visiting a state
                         self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
 
-                        is_next_state_encountered_in_execution_trace = webstate_unique_action_discovered[
-                                                                      next_webstate] is None
-                        if not is_next_state_encountered_in_execution_trace:
+                        is_next_state_new_in_execution_trace = webstate_unique_action_discovered[
+                                                                           next_webstate] is None
+                        if is_next_state_new_in_execution_trace:
                             non_duplicate_actions = [a for a in next_webstate.valid_actions if
                                                      not action_discovered_dict[
                                                          a]]  # state actions - discovered actions
                             webstate_unique_action_discovered[next_webstate] = non_duplicate_actions
+
                             for a in non_duplicate_actions:  # make actions found
                                 action_discovered_dict[a] = True
 
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
-
                         # TO-DO need to define formula for form interaction exploration completeness
                         if type(action) is FormGroup:
-                            self.webstate_form_state_dict[(prev_webstate, action)] = max(2, self.webstate_form_state_dict[(prev_webstate, action)] + 1)
+                            self.webstate_form_state_dict[(prev_webstate, action)] = max(2,
+                                                                                         self.webstate_form_state_dict[(
+                                                                                         prev_webstate, action)] + 1)
                             self.webstate_action_exploration_dict[
                                 (prev_webstate,
                                  action)] = 1 if self.webstate_form_state_dict[(prev_webstate, action)] < 2 else 2
                         else:
-                            nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions if
-                                                                  self.webstate_action_exploration_dict[
-                                                                      (next_webstate, a)] < 2])
+                            nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions or [] if
+                                                                      self.webstate_action_exploration_dict[
+                                                                          (next_webstate, a)] < 2])
                             self.webstate_action_exploration_dict[
                                 (prev_webstate,
-                                 action)] = 1 if nextstate_actions_exploration_left > 0 and not is_next_state_encountered_in_execution_trace else 2
+                                 action)] = 1 if nextstate_actions_exploration_left > 0 and not is_next_state_new_in_execution_trace else 2
 
                         print('valid actions: ', next_webstate.valid_actions)
                         # print(self.webstate_action_exploration_dict, end='\n\n')
@@ -201,7 +204,7 @@ class Crawler:
                             testcase.append((next_webstate, s))
 
                         # update available_actions with actions(sorted) of updated state
-                        if not len(next_webstate.valid_actions):
+                        if not len(next_webstate.valid_actions or []):
                             break
 
                         if len(action_sequence) == 0:
