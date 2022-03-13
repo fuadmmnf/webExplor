@@ -37,7 +37,8 @@ class Action(ElementHandle):
     def __ne__(self, other):
         return not (self == other)
 
-    async def interact(self):  # all type checking can be optimized by checking html string
+    async def interact(self,
+                       state: int):  # all type checking can be optimized by checking html string, state: 0 => interact, 1 => clear
         tag_name = await (await self.getProperty('tagName')).jsonValue()
         # print('tag name: ' + tag_name)
         if tag_name == 'A':
@@ -63,58 +64,59 @@ class Action(ElementHandle):
             faker: Faker = Faker()
             input_type = await (await self.getProperty('type')).jsonValue()
             # print('input type: ' + input_type)
-            if input_type == 'button':
-                await self.click()
-            elif input_type == 'checkbox':
-                await self.click()
-            elif input_type == 'color':
-                # not working
-                # r = lambda: random.randint(0, 255)
-                # color = '#%02X%02X%02X' % (r(), r(), r())
-                # print(color)
-                # await valid_action.type(color)
-                pass
+            if input_type in ['button', 'image', 'radio', 'reset', 'submit', 'checkbox']:
+                if state == 0:
+                    await self.click()
 
-            elif input_type == 'date':
-                await self.type(faker.date(pattern='%m-%d-%Y'))
-            elif input_type == 'datetime-local':
-                await self.type(faker.date_time().strftime('%Y-%m-%dT%H:%M%p'))
-            elif input_type == 'email':
-                await self.type(faker.email())
-            elif input_type == 'file':
-                file_path = random.choice(os.listdir(os.path.join(os.path.dirname(__file__), 'res/file_types')))
-                await self.uploadFile(file_path)
-            elif input_type == 'hidden':
-                pass
-            elif input_type == 'image':
-                await self.click()
-            elif input_type == 'month':
-                await self.type(faker.date_time().strftime('%Y-%m'))
-            elif input_type == 'number':
-                await self.type(str(random.random() * random.randrange(1000)))
-            elif input_type == 'password':
-                await self.type(faker.password())
-            elif input_type == 'radio':
-                await self.click()
-            elif input_type == 'range':
-                # not working
-                # rand_range = str(random.randint(0, 100))
-                # print(rand_range)
-                # await valid_action.type()
-                pass
-            elif input_type == 'reset':
-                await self.click()
-            elif input_type == 'search':  # potential
-                await self.type(faker.text())
-            elif input_type == 'submit':
-                await self.click()
-            elif input_type == 'tel':
-                await self.type(faker.phone_number())
-            elif input_type == 'text':
-                await self.type(faker.text())
-            elif input_type == 'time':
-                await self.type(faker.date_time().strftime('%H:%M%p'))
-            elif input_type == 'url':
-                await self.type(faker.url())
-            elif input_type == 'week':
-                await self.type(faker.date_time().strftime('%Y-W%U'))
+            else:
+                if state == 0:
+                    if input_type == 'date':
+                        await self.type(faker.date(pattern='%m-%d-%Y'))
+
+                    elif input_type == 'datetime-local':
+                        await self.type(faker.date_time().strftime('%Y-%m-%dT%H:%M%p'))
+                    elif input_type == 'email':
+                        await self.type(faker.email())
+                    elif input_type == 'file':
+                        file_path = random.choice(os.listdir(os.path.join(os.path.dirname(__file__), 'res/file_types')))
+                        await self.uploadFile(file_path)
+                    elif input_type == 'hidden':
+                        pass
+
+                    elif input_type == 'month':
+                        await self.type(faker.date_time().strftime('%Y-%m'))
+                    elif input_type == 'number':
+                        await self.type(str(random.random() * random.randrange(1000)))
+                    elif input_type == 'password':
+                        await self.type(faker.password())
+
+                    elif input_type == 'range':
+                        # not working
+                        # rand_range = str(random.randint(0, 100))
+                        # print(rand_range)
+                        # await valid_action.type()
+                        pass
+
+                    elif input_type == 'search':  # potential
+                        await self.type(faker.text())
+
+                    elif input_type == 'tel':
+                        await self.type(faker.phone_number())
+                    elif input_type == 'text':
+                        await self.type(faker.text())
+                    elif input_type == 'time':
+                        await self.type(faker.date_time().strftime('%H:%M%p'))
+                    elif input_type == 'url':
+                        await self.type(faker.url())
+                    elif input_type == 'week':
+                        await self.type(faker.date_time().strftime('%Y-W%U'))
+                    elif input_type == 'color':
+                        # not working
+                        # r = lambda: random.randint(0, 255)
+                        # color = '#%02X%02X%02X' % (r(), r(), r())
+                        # print(color)
+                        # await valid_action.type(color)
+                        pass
+                else:
+                    await self.click(clickCount=3)
+                    await self.press('Backspace')

@@ -11,6 +11,7 @@ from preprocessing import Preprocessing
 from qlearning import QLearning
 from models.webstate import Webstate
 from models.action import Action
+from models.form_group import FormGroup
 from models.failure import Failure
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
@@ -33,6 +34,7 @@ class Crawler:
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
         self.webstate_action_exploration_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
                                                                                                 {})  # 0 => unexplored, 1 => active, 2 => complete
+        self.webstate_form_state_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0, {}) # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
         self.application_failures: list[Failure] = []
 
         self.root_domain: str = urlparse(self.home_url).netloc
@@ -71,7 +73,8 @@ class Crawler:
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
                                 key=lambda act: [1000, 100, self.qlearning.calculate_action_weight(
-                                    webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not self.invalid_actions[act] else -1,
+                                    webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not
+                                self.invalid_actions[act] else -1,
                                 reverse=True)  # not dfs, dfs + bfs combination
 
         return sorted_actions[0]
@@ -107,7 +110,7 @@ class Crawler:
                         # if failed append current_test in failed_test_cases list
                         # print('prev url: ', self.active_page.url)
                         action: Action = action_sequence.pop(0)
-                        failed = await self._perform_action(self.active_page, action)
+                        failed = await self._perform_action(prev_webstate, action)
                         # print('next url: ', self.active_page.url)
                         if failed:
                             self.failed_test_cases.append(testcase)
@@ -151,7 +154,9 @@ class Crawler:
                         # steps after visiting a state
                         self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
 
-                        if webstate_unique_action_discovered[next_webstate] is None:
+                        is_next_state_encountered_in_execution_trace = webstate_unique_action_discovered[
+                                                                      next_webstate] is None
+                        if not is_next_state_encountered_in_execution_trace:
                             non_duplicate_actions = [a for a in next_webstate.valid_actions if
                                                      not action_discovered_dict[
                                                          a]]  # state actions - discovered actions
@@ -162,15 +167,20 @@ class Crawler:
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
-                        nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions if
-                                                                  self.webstate_action_exploration_dict[
-                                                                      (next_webstate, a)] < 2])
 
                         # TO-DO need to define formula for form interaction exploration completeness
-                        self.webstate_action_exploration_dict[
-                            (prev_webstate,
-                             action)] = 1 if nextstate_actions_exploration_left > 0 and prev_webstate != next_webstate else 2
-
+                        if type(action) is FormGroup:
+                            self.webstate_form_state_dict[(prev_webstate, action)] = max(2, self.webstate_form_state_dict[(prev_webstate, action)] + 1)
+                            self.webstate_action_exploration_dict[
+                                (prev_webstate,
+                                 action)] = 1 if self.webstate_form_state_dict[(prev_webstate, action)] < 2 else 2
+                        else:
+                            nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions if
+                                                                  self.webstate_action_exploration_dict[
+                                                                      (next_webstate, a)] < 2])
+                            self.webstate_action_exploration_dict[
+                                (prev_webstate,
+                                 action)] = 1 if nextstate_actions_exploration_left > 0 and not is_next_state_encountered_in_execution_trace else 2
 
                         print('valid actions: ', next_webstate.valid_actions)
                         # print(self.webstate_action_exploration_dict, end='\n\n')
@@ -251,7 +261,7 @@ class Crawler:
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
         return webstate
 
-    async def _perform_action(self, page: pyppeteer.page.Page, valid_action: Optional[Action]) -> bool:
+    async def _perform_action(self, webstate: Webstate, valid_action: Optional[Action]) -> bool:
         is_failing = False
         # Get page error events for action
         ## DUE ##
@@ -261,7 +271,10 @@ class Crawler:
         try:
             if valid_action is None:
                 return is_failing
-            await valid_action.interact()
+            await valid_action.interact(self.webstate_form_state_dict[(webstate, valid_action)])
+
+
+
         except:
             # self.invalid_actions[valid_action] = True
             pass
