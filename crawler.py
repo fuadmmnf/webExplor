@@ -185,7 +185,8 @@ class Crawler:
                                 (prev_webstate,
                                  action)] = 1 if nextstate_actions_exploration_left > 0 and not is_next_state_new_in_execution_trace else 2
 
-                        print('valid actions: ', next_webstate.valid_actions)
+                        if "owners" in next_webstate.url:
+                            print('valid actions: ', next_webstate.valid_actions)
                         # print(self.webstate_action_exploration_dict, end='\n\n')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
@@ -239,12 +240,12 @@ class Crawler:
                     except Exception as e:
                         # print('the error was: ', e)
                         traceback.print_exc()
-                        sys.exit(1)
+                        # sys.exit(1)
                         return
                         # return await self.crawl()
             except Exception as e:
                 traceback.print_exc()
-                sys.exit(1)
+                # sys.exit(1)
                 return
                 # return await self.crawl()
 

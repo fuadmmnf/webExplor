@@ -36,6 +36,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
                 form_parser.select('input, button[type="submit"], select > option')))
         # print('form action htmls: ', form_action_items_htmls)
         form_action_items_handles = await form_handle.querySelectorAll('input, button[type="submit"], select')
+
         form_actionable_elements: tuple[Action] = tuple(
             [Action(e, s, page_url) for (e, s) in
              zip(form_action_items_handles, form_action_items_htmls) if await e.boundingBox() is not None])
@@ -43,7 +44,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
         form_element_html: str = f'{form_parser.name} ' + str({k: v for k, v in form_parser.attrs.items() if v})
         actionable_forms.append(FormGroup(form_handle, form_element_html, page_url, form_actionable_elements))
 
-        actionable_elements = tuple([a for a in actionable_elements if a in form_actionable_elements])
+        actionable_elements = tuple([a for a in actionable_elements if a not in form_actionable_elements])
 
 
     # actionable_elements: tuple[Optional[Action]] = tuple(
