@@ -79,7 +79,7 @@ class Crawler:
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
-                                key=lambda act: ([1000, 100, self.qlearning.calculate_action_weight(
+                                key=lambda act: ([100, 1000, self.qlearning.calculate_action_weight(
                                     webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not
                                 self.invalid_actions[act] else -1, random.random()),
                                 reverse=True)  # not dfs, dfs + bfs combination
@@ -181,8 +181,8 @@ class Crawler:
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
-                        # if next_webstate.url.endswith("owners/"):
-                        #     logging.info('exploration dict: ', self.webstate_action_exploration_dict)
+                        if "owners/" in next_webstate.url:
+                            logging.info(f'exploration dict:  {self.webstate_action_exploration_dict}')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -211,7 +211,9 @@ class Crawler:
                                 (prev_webstate,
                                  action)] = 1 if nextstate_actions_exploration_left > 0 and discovered_states.index(
                                 prev_webstate) < discovered_states.index(next_webstate) else 2
-
+                            # if discovered_states.index(
+                            #     prev_webstate) < discovered_states.index(next_webstate):
+                            #     self.invalid_actions[action] = True # experimental
                         # append action action to test_case
                         for s in action.interaction_sequence if action is not None else [None]:
                             testcase.append((next_webstate, s))
@@ -234,11 +236,12 @@ class Crawler:
                         # w: tuple[
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
-                        logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
-                        # print('url s: ', prev_webstate.url, next_webstate.url)
-                        for a in next_webstate.valid_actions:
-                            logging.info(
-                                f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
+                        if "owners/" in next_webstate.url:
+                            logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+                            # print('url s: ', prev_webstate.url, next_webstate.url)
+                            for a in next_webstate.valid_actions:
+                                logging.info(
+                                    f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
 
                         # current_page = p, current_state = s
                         prev_webstate = next_webstate

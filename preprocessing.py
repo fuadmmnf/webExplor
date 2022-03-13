@@ -14,7 +14,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
 
     # Action Extraction
     action_element_htmls: list[str] = list(
-        map(lambda x: f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v}),
+        map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
             parser.select('input, a, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
@@ -32,7 +32,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     actionable_forms: list[FormGroup] = []
     for (form_handle, form_parser) in zip(form_element_handles, form_parsers):
         form_action_items_htmls = list(
-            map(lambda x: f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v}),
+            map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
                 form_parser.select('input, button[type="submit"], select > option')))
         # print('form action htmls: ', form_action_items_htmls)
         form_action_items_handles = await form_handle.querySelectorAll('input, button[type="submit"], select')
