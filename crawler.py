@@ -28,7 +28,7 @@ class Crawler:
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
-    IS_HEADLESS_START = False
+    IS_HEADLESS_START = True
 
     def __init__(self, home_url: str):
         self.qlearning: QLearning = QLearning()
@@ -49,7 +49,7 @@ class Crawler:
         self.test_case_iterator = 0
         self.start_time: time = time.time()
         self.no_new_state_interval: time = time.time()
-
+        self.last_reporting_time = time.time()
     async def init_browser(self) -> None:
 
         if self.browser is not None:
@@ -181,8 +181,8 @@ class Crawler:
                         next_webstate.valid_actions = webstate_unique_action_discovered[
                             next_webstate]  # what if new action found for similar state???
 
-                        if "owners/" in next_webstate.url:
-                            logging.info(f'exploration dict:  {self.webstate_action_exploration_dict}')
+                        # if "owners/" in next_webstate.url:
+                        #     logging.info(f'exploration dict:  {self.webstate_action_exploration_dict}')
 
                         # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
@@ -236,12 +236,12 @@ class Crawler:
                         # w: tuple[
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
-                        if "owners/" in next_webstate.url:
-                            logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
-                            # print('url s: ', prev_webstate.url, next_webstate.url)
-                            for a in next_webstate.valid_actions:
-                                logging.info(
-                                    f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
+                        # if "owners/" in next_webstate.url:
+                        #     logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+                        #     # print('url s: ', prev_webstate.url, next_webstate.url)
+                        #     for a in next_webstate.valid_actions:
+                        #         logging.info(
+                        #             f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
 
                         # current_page = p, current_state = s
                         prev_webstate = next_webstate
@@ -263,7 +263,11 @@ class Crawler:
                 # return await self.crawl()
 
             test_case_iterator = self.test_case_iterator + 1
-            if (time.time() - self.start_time) / 60.0 > self.TIME_BUDGET_MINUTES:
+            time_elapsed = (time.time() - self.start_time)/60
+            if (time_elapsed - self.last_reporting_time)/60 > 0.99:
+                self.last_reporting_time = time.time()
+                logging.info(f'Time Elapsed: {time_elapsed} minutes, errors detected: {len(self.application_failures)}')
+            if time_elapsed / 60.0 > self.TIME_BUDGET_MINUTES:
                 break
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
@@ -297,7 +301,7 @@ class Crawler:
             # self.invalid_actions[valid_action] = True
             pass
 
-        await self.active_page.waitFor(50)
+        await self.active_page.waitFor(25)
         # await page.waitForNavigation({'waitUntil': 'networkidle0'})
 
         return is_failing
