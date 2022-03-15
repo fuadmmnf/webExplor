@@ -1,5 +1,7 @@
 from typing import Optional
 from bs4 import BeautifulSoup
+import asyncio
+
 import pyppeteer.page
 from pyppeteer.element_handle import ElementHandle
 from models.webstate import Webstate
@@ -46,7 +48,6 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
 
         actionable_elements = tuple([a for a in actionable_elements if a not in form_actionable_elements])
 
-
     # actionable_elements: tuple[Optional[Action]] = tuple(
     #     [None if await e.boundingBox() is None else Action(e, s, page_url) for (e, s) in
     #      zip(element_handles, action_element_htmls)])
@@ -72,9 +73,19 @@ class Preprocessing:
     def __init__(self) -> None:
         self.webstate_set: set[Webstate] = set()
 
+    async def __get_page_content(self, page: pyppeteer.page.Page, retries=0):
+        if retries > 10:
+            return await page.content()
+        else:
+            try:
+                return await page.content()
+            except:
+                await asyncio.sleep(0.5)
+                return await self.__get_page_content(page, retries + 1)
+
     async def extract_webstate_and_is_new_state(self, page: pyppeteer.page.Page) -> tuple[Webstate, bool]:
         page_url = page.url
-        page_html = await page.content()
+        page_html = await self.__get_page_content(page)
         webstate = await _retrieve_webstate(page, page_html, page_url)
         for prev_webstate in self.webstate_set:
             if prev_webstate.url.rstrip('/') != page_url.rstrip('/'):

@@ -28,12 +28,13 @@ class Crawler:
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
-    IS_HEADLESS_START = True
+    IS_HEADLESS_START = False
 
-    def __init__(self, home_url: str):
+    def __init__(self, home_url: str, project_code: str):
         self.qlearning: QLearning = QLearning()
         self.preprocessing: Preprocessing = Preprocessing()
         self.home_url: str = home_url
+        self.project_code: str = project_code
         self.home_state = None
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
@@ -50,6 +51,7 @@ class Crawler:
         self.start_time: time = time.time()
         self.no_new_state_interval: time = time.time()
         self.last_reporting_time = time.time()
+
     async def init_browser(self) -> None:
 
         if self.browser is not None:
@@ -60,12 +62,10 @@ class Crawler:
     async def _restart_env(self, wait: bool):
         # await self.browser.newPage()
         # await (await self.browser.pages())[0].close()
+        await self.init_browser()
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
-        try:
-            await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
-        except Exception as e:
-            return await self.crawl()
+        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
 
         # print('Starting testing from home page\n\n')
 
@@ -77,11 +77,30 @@ class Crawler:
                     self.application_failures.append(failure)
                     logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
+        await self._initial_setup()
+
+    async def _initial_setup(self):
+        if self.project_code == 'trello':
+            await self.active_page.waitForSelector('button[type="submit"]')
+            signin_button = await self.active_page.querySelector('button[type="submit"]')
+            await signin_button.click()
+            await self.active_page.waitForSelector('#authentication_container')
+
+        elif self.project_code == 'pagekit':
+            username_input = await self.active_page.querySelector('input[type="text"]')
+            await username_input.type('admin')
+
+            password_input = await self.active_page.querySelector('input[type="password"]')
+            await password_input.type('asdfghjkl123')
+
+            login_button = await self.active_page.querySelector('button')
+            await login_button.click()
+
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
                                 key=lambda act: ([100, 1000, self.qlearning.calculate_action_weight(
-                                    webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]] if not
-                                self.invalid_actions[act] else -1, random.random()),
+                                    webstate, act)][self.webstate_action_exploration_dict[(webstate, act)]],
+                                                 random.random()),
                                 reverse=True)  # not dfs, dfs + bfs combination
 
         # sorted_actions = sorted(webstate.valid_actions,
@@ -161,6 +180,7 @@ class Crawler:
                         # calculate curiosity for transition s`, a, s
 
                         if urlparse(next_webstate.url).netloc != self.root_domain:
+                            print('invalid action detected')
                             self.invalid_actions[action] = True
                             break
 
@@ -178,8 +198,9 @@ class Crawler:
                             for a in non_duplicate_actions:  # make actions found
                                 action_discovered_dict[a] = True
 
-                        next_webstate.valid_actions = webstate_unique_action_discovered[
-                            next_webstate]  # what if new action found for similar state???
+                        next_webstate.valid_actions = [a for a in webstate_unique_action_discovered[
+                            next_webstate] if not self.invalid_actions[
+                            a]]  # what if new action found for similar state???
 
                         # if "owners/" in next_webstate.url:
                         #     logging.info(f'exploration dict:  {self.webstate_action_exploration_dict}')
@@ -236,8 +257,7 @@ class Crawler:
                         # w: tuple[
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
-                        # if "owners/" in next_webstate.url:
-                        #     logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+                        logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
                         #     # print('url s: ', prev_webstate.url, next_webstate.url)
                         #     for a in next_webstate.valid_actions:
                         #         logging.info(
@@ -263,11 +283,11 @@ class Crawler:
                 # return await self.crawl()
 
             test_case_iterator = self.test_case_iterator + 1
-            time_elapsed = (time.time() - self.start_time)/60
-            if (time_elapsed - self.last_reporting_time)/60 > 0.99:
+            time_elapsed = (time.time() - self.start_time) / 60
+            if (time_elapsed - self.last_reporting_time) / 60 > 0.99:
                 self.last_reporting_time = time.time()
                 logging.info(f'Time Elapsed: {time_elapsed} minutes, errors detected: {len(self.application_failures)}')
-            if time_elapsed / 60.0 > self.TIME_BUDGET_MINUTES:
+            if (time_elapsed / 60.0) > self.TIME_BUDGET_MINUTES:
                 break
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
@@ -279,7 +299,7 @@ class Crawler:
         # return self.failed_test_cases
 
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
-
+        # await self.active_page.waitFor(50)
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
         return webstate
 
@@ -301,7 +321,6 @@ class Crawler:
             # self.invalid_actions[valid_action] = True
             pass
 
-        await self.active_page.waitFor(25)
         # await page.waitForNavigation({'waitUntil': 'networkidle0'})
 
         return is_failing
