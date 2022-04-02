@@ -1,16 +1,13 @@
 import random
 import sys
-import time
+from time import time, ctime
 import traceback
 from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
 import logging
 
-logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
+
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
@@ -48,9 +45,15 @@ class Crawler:
         self.root_domain: str = urlparse(self.home_url).netloc
         self.failed_test_cases: list[Testcase] = []
         self.test_case_iterator = 0
-        self.start_time: time = time.time()
-        self.no_new_state_interval: time = time.time()
-        self.last_reporting_time = time.time()
+        self.start_time: time = time()
+        self.no_new_state_interval: time = time()
+        self.last_reporting_time = time()
+
+        logging.basicConfig(
+            filename=f'{self.project_code} {ctime(self.start_time)}',
+            format='%(asctime)s %(levelname)-8s %(message)s',
+            level=logging.INFO,
+            datefmt='%Y-%m-%d %H:%M:%S')
 
     async def init_browser(self) -> None:
 
@@ -112,10 +115,19 @@ class Crawler:
         return sorted_actions[0]
 
     async def start(self):
-        while True:
-            await self.crawl()  # crawl will close program upon finishing
+        time_elapsed = (time() - self.start_time) / 60
 
-    async def crawl(self) -> list[Testcase]:
+        while time_elapsed <= self.TIME_BUDGET_MINUTES:
+            await self.crawl()  # crawl will close program upon finishing
+            time_elapsed = (time() - self.start_time) / 60
+
+        logging.warning(
+            "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
+        logging.warning('Failures: ')
+        logging.warning(str(len(self.application_failures)) + str(self.application_failures))
+        await self.browser.close()
+
+    async def crawl(self):
 
         await self.init_browser()
 
@@ -154,7 +166,7 @@ class Crawler:
 
                         # check if stuck for some while
                         # if len(action_sequence) == 0 and (
-                        #         time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
+                        #         time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
                         #     # pass  ### DUE - initiate dfa ###
                         #     await self._restart_env(False)
                         #     prev_webstate: Webstate = (await self._get_page_webstate())[0]
@@ -169,13 +181,13 @@ class Crawler:
                         #     print('\n')
                         #     testcase = [(prev_webstate, None)]  # track resulting webstate and action responsible
                         #
-                        #     no_new_state_interval = time.time()
+                        #     no_new_state_interval = time()
                         #     discovered_states = [prev_webstate]
                         #     continue
                         # elif w[1]:
                         #     # print('new state found', next_webstate)
                         #     # input("press to pass")
-                        #     self.no_new_state_interval = time.time()
+                        #     self.no_new_state_interval = time()
 
                         # calculate curiosity for transition s`, a, s
 
@@ -283,19 +295,12 @@ class Crawler:
                 # return await self.crawl()
 
             test_case_iterator = self.test_case_iterator + 1
-            time_elapsed = (time.time() - self.start_time) / 60
-            if (time_elapsed - self.last_reporting_time) / 60 > 0.99:
-                self.last_reporting_time = time.time()
-                logging.info(f'Time Elapsed: {time_elapsed} minutes, errors detected: {len(self.application_failures)}')
-            if (time_elapsed / 60.0) > self.TIME_BUDGET_MINUTES:
-                break
-        logging.warning(
-            "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
-        logging.warning('Failures: ')
-        logging.warning(str(len(self.application_failures)) + str(self.application_failures))
-        await self.browser.close()
+            time_elapsed = (time() - self.start_time) / 60
 
-        sys.exit(0)
+            if time_elapsed > self.TIME_BUDGET_MINUTES:
+                break
+
+        return
         # return self.failed_test_cases
 
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
