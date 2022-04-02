@@ -1,6 +1,7 @@
 import random
 import sys
-from time import time, ctime
+import time
+from datetime import datetime
 import traceback
 from collections import defaultdict
 from urllib.parse import urlparse
@@ -25,7 +26,7 @@ class Crawler:
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
-    IS_HEADLESS_START = False
+    IS_HEADLESS_START = True
 
     def __init__(self, home_url: str, project_code: str):
         self.qlearning: QLearning = QLearning()
@@ -45,12 +46,13 @@ class Crawler:
         self.root_domain: str = urlparse(self.home_url).netloc
         self.failed_test_cases: list[Testcase] = []
         self.test_case_iterator = 0
-        self.start_time: time = time()
-        self.no_new_state_interval: time = time()
-        self.last_reporting_time = time()
+        self.start_time: time = time.time()
+        self.no_new_state_interval: time = time.time()
+        self.last_reporting_time = time.time()
 
         logging.basicConfig(
-            filename=f'{self.project_code} {ctime(self.start_time)}',
+            filename=f'res/logs/{self.project_code}_{datetime.now().strftime("%m%d-%H%M%S")}.log',
+            filemode='w',
             format='%(asctime)s %(levelname)-8s %(message)s',
             level=logging.INFO,
             datefmt='%Y-%m-%d %H:%M:%S')
@@ -115,11 +117,11 @@ class Crawler:
         return sorted_actions[0]
 
     async def start(self):
-        time_elapsed = (time() - self.start_time) / 60
+        time_elapsed = (time.time() - self.start_time) / 60
 
         while time_elapsed <= self.TIME_BUDGET_MINUTES:
             await self.crawl()  # crawl will close program upon finishing
-            time_elapsed = (time() - self.start_time) / 60
+            time_elapsed = (time.time() - self.start_time) / 60
 
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
@@ -166,7 +168,7 @@ class Crawler:
 
                         # check if stuck for some while
                         # if len(action_sequence) == 0 and (
-                        #         time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
+                        #         time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
                         #     # pass  ### DUE - initiate dfa ###
                         #     await self._restart_env(False)
                         #     prev_webstate: Webstate = (await self._get_page_webstate())[0]
@@ -181,13 +183,13 @@ class Crawler:
                         #     print('\n')
                         #     testcase = [(prev_webstate, None)]  # track resulting webstate and action responsible
                         #
-                        #     no_new_state_interval = time()
+                        #     no_new_state_interval = time.time()
                         #     discovered_states = [prev_webstate]
                         #     continue
                         # elif w[1]:
                         #     # print('new state found', next_webstate)
                         #     # input("press to pass")
-                        #     self.no_new_state_interval = time()
+                        #     self.no_new_state_interval = time.time()
 
                         # calculate curiosity for transition s`, a, s
 
@@ -269,7 +271,7 @@ class Crawler:
                         # w: tuple[
                         #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                         # demo_webstate = w[0]
-                        logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+                        # logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
                         #     # print('url s: ', prev_webstate.url, next_webstate.url)
                         #     for a in next_webstate.valid_actions:
                         #         logging.info(
@@ -289,13 +291,13 @@ class Crawler:
                         return
                         # return await self.crawl()
             except Exception as e:
-                traceback.print_exc()
+                # traceback.print_exc()
                 # sys.exit(1)
                 return
                 # return await self.crawl()
 
             test_case_iterator = self.test_case_iterator + 1
-            time_elapsed = (time() - self.start_time) / 60
+            time_elapsed = (time.time() - self.start_time) / 60
 
             if time_elapsed > self.TIME_BUDGET_MINUTES:
                 break
