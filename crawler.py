@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 from typing import Optional
 import logging
 
-
 import pyppeteer.page
 from pyppeteer import launch
 from preprocessing import Preprocessing
@@ -78,6 +77,8 @@ class Crawler:
         def handle_request_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 failure: Failure = Failure(message.text, self.active_page.url)
+                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
                     logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
@@ -125,8 +126,9 @@ class Crawler:
 
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
-        logging.warning('Failures: ')
-        logging.warning(str(len(self.application_failures)) + str(self.application_failures))
+        logging.warning('Unique Failures: ' + str(len(self.application_failures)))
+        for f in self.application_failures:
+            logging.error(str(f))
         await self.browser.close()
 
     async def crawl(self):
