@@ -43,7 +43,7 @@ class Action(ElementHandle):
         # print('tag name: ' + tag_name)
         if tag_name == 'A':
             # for self page navigation
-            link = await (await self.getProperty('href')).jsonValue()
+            # link = await (await self.getProperty('href')).jsonValue()
             # if link == 'javascript:void(0)':
             #     self.invalid_actions[valid_action] = True
             #     continue
@@ -51,7 +51,6 @@ class Action(ElementHandle):
             # await page.goto(link.__str__())
             #######
             await self.click()
-
         elif tag_name == 'BUTTON':
             await self.click()
         elif tag_name == 'SELECT':
@@ -103,7 +102,7 @@ class Action(ElementHandle):
                     elif input_type == 'tel':
                         await self.type(faker.phone_number())
                     elif input_type == 'text':
-                        await self.type(faker.text())
+                        await self.type(faker.text()[: random.randint(1, 50)])
                         # await self.type(str(random.randint(0, 10000000000)))
 
                     elif input_type == 'time':
@@ -122,3 +121,5 @@ class Action(ElementHandle):
                 else:
                     await self.click(clickCount=3)
                     await self.press('Backspace')
+
+        return tag_name

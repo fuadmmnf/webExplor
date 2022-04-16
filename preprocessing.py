@@ -9,21 +9,27 @@ from models.action import Action
 from models.form_group import FormGroup
 
 
+def _element_filter_formatter(x):
+    return f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v and (k not in ['id', 'value'])})
+
 async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url: str) -> Webstate:
     parser = BeautifulSoup(page_html, "html.parser")
     # elements = BeautifulSoup(page_html, "html.parser").findAll()sequences of lines of text,
     # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
 
     # Action Extraction
-    action_element_htmls: list[str] = list(
-        map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
+    # action_element_htmls: list[str] = list(
+    #     map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
+    #         parser.select('input, a, button, select > option')))
+
+    action_element_htmls: list[str] = list(map(lambda x: _element_filter_formatter(x), # id can change dynamically for each run
             parser.select('input, a, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
 
     actionable_elements: tuple[Action] = tuple(
         [Action(e, s, page_url) for (e, s) in
-         zip(element_handles, action_element_htmls) if await e.boundingBox() is not None])
+         zip(element_handles, action_element_htmls) if await e.boundingBox() is not None and "'target': '_blank'" not in s])
 
     # Form grouping
     form_parsers = parser.select('form')
@@ -33,9 +39,15 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
 
     actionable_forms: list[FormGroup] = []
     for (form_handle, form_parser) in zip(form_element_handles, form_parsers):
+        # form_action_items_htmls = list(
+        #     map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
+        #         form_parser.select('input, button[type="submit"], select > option')))
+        #
         form_action_items_htmls = list(
-            map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
+            map(lambda x: _element_filter_formatter(x),
                 form_parser.select('input, button[type="submit"], select > option')))
+
+
         # print('form action htmls: ', form_action_items_htmls)
         form_action_items_handles = await form_handle.querySelectorAll('input, button[type="submit"], select')
 
@@ -43,7 +55,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
             [Action(e, s, page_url) for (e, s) in
              zip(form_action_items_handles, form_action_items_htmls) if await e.boundingBox() is not None])
 
-        form_element_html: str = f'{form_parser.name} ' + str({k: v for k, v in form_parser.attrs.items() if v})
+        form_element_html: str = _element_filter_formatter(form_parser)
         actionable_forms.append(FormGroup(form_handle, form_element_html, page_url, form_actionable_elements))
 
         actionable_elements = tuple([a for a in actionable_elements if a not in form_actionable_elements])
