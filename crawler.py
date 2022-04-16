@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 import time
@@ -6,8 +7,10 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlparse
+from faker import Faker
 
 import pyppeteer.page
+from pyppeteer.dialog import Dialog
 from pyppeteer import launch
 
 from models.action import Action
@@ -63,7 +66,8 @@ class Crawler:
             # self.browser = await launch(headless=False, devtools=True)
         # self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
         self.browser = await launch(headless=self.IS_HEADLESS_START, slowMo=0 if self.IS_HEADLESS_START else 3,
-                                    userDataDir='/tmp/myChromeSession', args=['--no-sandbox', '--disable-setuid-sandbox'])
+                                    userDataDir='/tmp/myChromeSession',
+                                    args=['--no-sandbox', '--disable-setuid-sandbox'])
         # self.browser = await launch(headless=self.IS_HEADLESS_START)
 
     async def _restart_env(self, wait: bool):
@@ -73,11 +77,11 @@ class Crawler:
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
-        await self.active_page.setCacheEnabled(True)
+        # await self.active_page.setCacheEnabled(True)
 
         # print('Starting testing from home page\n\n')
-        @self.active_page.on('console')
-        def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+
+        async def handle_request_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 failure: Failure = Failure(message.text, self.active_page.url)
                 # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
@@ -85,6 +89,19 @@ class Crawler:
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
                     logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+
+        self.active_page.on('console', lambda message: asyncio.ensure_future(handle_request_error(message)))
+
+        async def handle_dialog(dialog: Dialog):
+            if random.uniform(0, 1) > 0.5:
+                await dialog.accept(promptText=Faker().text()[: random.randint(0, 50)])
+            else:
+                await dialog.dismiss()
+
+        self.active_page.on(
+            'dialog',
+            lambda dialog: asyncio.ensure_future(handle_dialog(dialog))
+        )
 
         await self._initial_setup()
 
@@ -159,7 +176,6 @@ class Crawler:
                 lambda: None, {})  # webstate non duplicate action list with discovery status
             action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
 
-
             # redo entire process
             rootstate_actions_exploration_left = len([a for a in prev_webstate.valid_actions or [] if
                                                       self.webstate_action_exploration_dict[
@@ -168,7 +184,6 @@ class Crawler:
                 self.webstate_action_exploration_dict.clear()
 
             # redo entire process
-
 
             while True:
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
@@ -297,7 +312,7 @@ class Crawler:
                 # print('url s: ', prev_webstate.url, next_webstate.url)
                 for a in next_webstate.valid_actions:
                     print(f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
-
+                print('\n\n')
                 # current_page = p, current_state = s
                 prev_webstate = next_webstate
 

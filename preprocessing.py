@@ -10,7 +10,12 @@ from models.form_group import FormGroup
 
 
 def _element_filter_formatter(x):
-    return f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v and (k not in ['id', 'value'])})
+    def __remove_digits(s):
+        return ''.join([i for i in s if not i.isdigit()])
+
+    return f'{x.name} ' + str(
+        {__remove_digits(k): __remove_digits(v) if k != 'href' else v for k, v in x.attrs.items()})
+
 
 async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url: str) -> Webstate:
     parser = BeautifulSoup(page_html, "html.parser")
@@ -22,14 +27,16 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     #     map(lambda x: f'{x.name} {x.contents}' + str({k: v for k, v in x.attrs.items() if v}),
     #         parser.select('input, a, button, select > option')))
 
-    action_element_htmls: list[str] = list(map(lambda x: _element_filter_formatter(x), # id can change dynamically for each run
+    action_element_htmls: list[str] = list(
+        map(lambda x: _element_filter_formatter(x),  # id can change dynamically for each run
             parser.select('input, a, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
 
     actionable_elements: tuple[Action] = tuple(
         [Action(e, s, page_url) for (e, s) in
-         zip(element_handles, action_element_htmls) if await e.boundingBox() is not None and "'target': '_blank'" not in s])
+         zip(element_handles, action_element_htmls) if
+         await e.boundingBox() is not None and "'target': '_blank'" not in s])
 
     # Form grouping
     form_parsers = parser.select('form')
@@ -46,7 +53,6 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
         form_action_items_htmls = list(
             map(lambda x: _element_filter_formatter(x),
                 form_parser.select('input, button[type="submit"], select > option')))
-
 
         # print('form action htmls: ', form_action_items_htmls)
         form_action_items_handles = await form_handle.querySelectorAll('input, button[type="submit"], select')
