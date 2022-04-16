@@ -63,7 +63,7 @@ class Crawler:
             # self.browser = await launch(headless=False, devtools=True)
         # self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
         self.browser = await launch(headless=self.IS_HEADLESS_START, slowMo=0 if self.IS_HEADLESS_START else 3,
-                                    args=['--no-sandbox', '--disable-setuid-sandbox'])
+                                    userDataDir='/tmp/myChromeSession', args=['--no-sandbox', '--disable-setuid-sandbox'])
         # self.browser = await launch(headless=self.IS_HEADLESS_START)
 
     async def _restart_env(self, wait: bool):
@@ -158,6 +158,17 @@ class Crawler:
             webstate_unique_action_discovered: dict[Webstate, Optional[list[Action, int]]] = defaultdict(
                 lambda: None, {})  # webstate non duplicate action list with discovery status
             action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
+
+
+            # redo entire process
+            rootstate_actions_exploration_left = len([a for a in prev_webstate.valid_actions or [] if
+                                                      self.webstate_action_exploration_dict[
+                                                          (prev_webstate, a)] < 2 and not self.invalid_actions[a]])
+            if rootstate_actions_exploration_left == 0:
+                self.webstate_action_exploration_dict.clear()
+
+            # redo entire process
+
 
             while True:
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
@@ -282,11 +293,10 @@ class Crawler:
                 # w: tuple[
                 #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                 # demo_webstate = w[0]
-                # logging.info(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
-                #     # print('url s: ', prev_webstate.url, next_webstate.url)
-                #     for a in next_webstate.valid_actions:
-                #         logging.info(
-                #             f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
+                print(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+                # print('url s: ', prev_webstate.url, next_webstate.url)
+                for a in next_webstate.valid_actions:
+                    print(f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
 
                 # current_page = p, current_state = s
                 prev_webstate = next_webstate

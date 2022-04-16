@@ -9,7 +9,6 @@ class FormGroup(Action):
         super().__init__(element_handle, outer_html, page_url)
         self.outer_html = outer_html
         self.page_url = page_url
-        print(outer_html)
         self.inner_actions = [] if actions is None else actions
         # self.g_iid = -math.log(-math.log(numpy.random.uniform(0.0, 1.0)))
         m = md5()
