@@ -35,10 +35,10 @@ class FormGroup(Action):
     def __ne__(self, other):
         return not (self == other)
 
-    async def interact(self, state): # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
+    async def interact(self, state): # 0 => all fields blank, 1 => some fields filled, >=2 => all fields filled
         submit_button_handle = None
         self.interaction_sequence = []
-        for a in sorted(self.inner_actions, key=lambda k: random.random()):
+        for a in sorted(self.inner_actions, key=lambda k: random.random()): # random interaction sequence
             if "'type': 'submit'" in a.outer_html:
                 submit_button_handle = a
                 continue

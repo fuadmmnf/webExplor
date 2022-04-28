@@ -77,18 +77,18 @@ class Crawler:
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
-        # await self.active_page.setCacheEnabled(True)
+        await self.active_page.setCacheEnabled(True)
 
         # print('Starting testing from home page\n\n')
 
         async def handle_request_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 failure: Failure = Failure(message.text, self.active_page.url)
-                # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
-                    logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+                    # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
         self.active_page.on('console', lambda message: asyncio.ensure_future(handle_request_error(message)))
 
@@ -106,21 +106,22 @@ class Crawler:
         await self._initial_setup()
 
     async def _initial_setup(self):
-        if self.project_code == 'trello':
-            await self.active_page.waitForSelector('button[type="submit"]')
-            signin_button = await self.active_page.querySelector('button[type="submit"]')
-            await signin_button.click()
-            await self.active_page.waitForSelector('#authentication_container')
 
-        elif self.project_code == 'pagekit':
-            username_input = await self.active_page.querySelector('input[type="text"]')
-            await username_input.type('admin')
+        if random.uniform(0, 1) > 0.1:
+            if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
+                signin_button = await self.active_page.querySelector('button[type="submit"]')
+                await signin_button.click()
+                await self.active_page.waitForSelector('#authentication_container')
 
-            password_input = await self.active_page.querySelector('input[type="password"]')
-            await password_input.type('asdfghjkl123')
+            elif self.project_code == 'pagekit':
+                username_input = await self.active_page.querySelector('input[type="text"]')
+                await username_input.type('admin')
 
-            login_button = await self.active_page.querySelector('button')
-            await login_button.click()
+                password_input = await self.active_page.querySelector('input[type="password"]')
+                await password_input.type('asdfghjkl123')
+
+                login_button = await self.active_page.querySelector('button')
+                await login_button.click()
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
@@ -157,9 +158,6 @@ class Crawler:
         await self.browser.close()
 
     async def crawl(self):
-
-        await self.init_browser()
-
         while True:
             await self._restart_env(True)
             # input()

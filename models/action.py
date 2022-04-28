@@ -102,7 +102,7 @@ class Action(ElementHandle):
                     elif input_type == 'tel':
                         await self.type(faker.phone_number())
                     elif input_type == 'text':
-                        await self.type(faker.text()[: random.randint(1, 50)])
+                        await self.type((faker.text())[: random.randint(1, 1000)])
                         # await self.type(str(random.randint(0, 10000000000)))
 
                     elif input_type == 'time':
