@@ -6,6 +6,13 @@ from models.webstate import Webstate
 from models.action import Action
 import asyncio
 
+def _element_filter_formatter(x):
+    def __remove_digits(s):
+        return ''.join([i for i in s if not i.isdigit()])
+
+    return f'{x.name} ' + str(
+        {__remove_digits(k): __remove_digits(v) if k != 'href' else v for k, v in x.attrs.items()})
+
 
 
 async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url: str) -> Webstate:
@@ -13,7 +20,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
     # elements = BeautifulSoup(page_html, "html.parser").findAll()sequences of lines of text,
     # body_elements: list[bs4.Tag] = .find('body').findChildren(recursive=False)
     action_element_htmls: list[str] = list(
-        map(lambda x: f'{x.name} ' + str({k: v for k, v in x.attrs.items() if v}),
+        map(lambda x: _element_filter_formatter(x),
             parser.select('input, a, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')

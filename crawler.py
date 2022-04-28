@@ -55,6 +55,7 @@ class Crawler:
             level=logging.WARNING,
             datefmt='%Y-%m-%d %H:%M:%S')
 
+
     async def init_browser(self) -> None:
         if self.browser is not None:
             await self.browser.close()
@@ -115,6 +116,7 @@ class Crawler:
         return sorted_actions[0]
 
     async def start(self):
+        logging.warning("Starting")
         time_elapsed = (time.time() - self.start_time) / 60
 
         while time_elapsed <= self.TIME_BUDGET_MINUTES:
@@ -124,7 +126,7 @@ class Crawler:
                 traceback.print_exc()
                 pass
             time_elapsed = (time.time() - self.start_time) / 60
-
+        logging.warning("Finished")
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
         logging.warning('Unique Failures: ' + str(len(self.application_failures)))
@@ -163,23 +165,20 @@ class Crawler:
                 next_webstate = w[0]
 
                 # check if stuck for some while
-                if len(action_sequence) == 0 and (
-                        time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
-                    # pass  ### DUE - initiate dfa ###
+                if (time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
                     await self._restart_env(False)
                     prev_webstate: Webstate = (await self._get_page_webstate())[0]
                     edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
                     print('Visit count table for DFA: \n ')
-                    print(self.qlearning.visit_count_table)
                     print('edges from dfa', edges)
                     action_sequence = list(map(lambda t: t[1], edges))
                     action_sequence.insert(0, None)
-                    action_sequence_iterator = 0
+                    action_sequence_iterator = len(action_sequence)
                     print('DFA', action_sequence_iterator, action_sequence)
                     print('\n')
                     testcase = [(prev_webstate, None)]
 
-                    no_new_state_interval = time.time()
+                    self.no_new_state_interval = time.time()
                     discovered_states = [prev_webstate]
                     continue
                 elif w[1]:
@@ -226,7 +225,7 @@ class Crawler:
                 # w: tuple[
                 #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                 # demo_webstate = w[0]
-                # print(prev_webstate, action, next_webstate, next_webstate.url)
+                print(prev_webstate, action, next_webstate, next_webstate.url)
                 # print('url s: ', prev_webstate.url, next_webstate.url)
                 # for a in next_webstate.valid_actions:
                 #     print(a, self.qlearning.q_table[(
