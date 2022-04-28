@@ -88,25 +88,25 @@ class Crawler:
 
         self.active_page.on('console', lambda message: asyncio.ensure_future(handle_request_error(message)))
 
-        # await self._initial_setup()
+        await self._initial_setup(wait)
 
-    # async def _initial_setup(self):
-    #
-    #     if random.uniform(0, 1) > 0.1:
-    #         if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
-    #             signin_button = await self.active_page.querySelector('button[type="submit"]')
-    #             await signin_button.click()
-    #             await self.active_page.waitForSelector('#authentication_container')
-    #
-    #         elif self.project_code == 'pagekit':
-    #             username_input = await self.active_page.querySelector('input[type="text"]')
-    #             await username_input.type('admin')
-    #
-    #             password_input = await self.active_page.querySelector('input[type="password"]')
-    #             await password_input.type('asdfghjkl123')
-    #
-    #             login_button = await self.active_page.querySelector('button')
-    #             await login_button.click()
+    async def _initial_setup(self, is_random):
+
+        if not is_random or random.uniform(0, 1) > 0.1:
+            if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
+                signin_button = await self.active_page.querySelector('button[type="submit"]')
+                await signin_button.click()
+                await self.active_page.waitForSelector('#authentication_container')
+
+            elif self.project_code == 'pagekit':
+                username_input = await self.active_page.querySelector('input[type="text"]')
+                await username_input.type('admin')
+
+                password_input = await self.active_page.querySelector('input[type="password"]')
+                await password_input.type('asdfghjkl123')
+
+                login_button = await self.active_page.querySelector('button')
+                await login_button.click()
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
