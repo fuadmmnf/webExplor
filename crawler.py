@@ -62,7 +62,7 @@ class Crawler:
             # self.browser = await launch(headless=False, devtools=True)
         # self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
         self.browser = await launch(headless=self.IS_HEADLESS_START,
-                                    userDataDir='/tmp/myChromeSession',
+                                    # userDataDir='/tmp/myChromeSession',
                                     args=['--no-sandbox', '--disable-setuid-sandbox'])
         # self.browser = await launch(headless=self.IS_HEADLESS_START)
 
