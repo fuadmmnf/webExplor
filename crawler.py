@@ -169,14 +169,14 @@ class Crawler:
                     await self._restart_env(False)
                     prev_webstate: Webstate = (await self._get_page_webstate())[0]
                     edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
-                    # print('Visit count table for DFA: \n ')
-                    # print(self.qlearning.visit_count_table)
-                    # print('edges from dfa', edges)
+                    print('Visit count table for DFA: \n ')
+                    print(self.qlearning.visit_count_table)
+                    print('edges from dfa', edges)
                     action_sequence = list(map(lambda t: t[1], edges))
                     action_sequence.insert(0, None)
                     action_sequence_iterator = 0
-                    # print('DFA', action_sequence_iterator, action_sequence)
-                    # print('\n')
+                    print('DFA', action_sequence_iterator, action_sequence)
+                    print('\n')
                     testcase = [(prev_webstate, None)]
 
                     no_new_state_interval = time.time()
