@@ -28,7 +28,7 @@ class Crawler:
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
-    IS_HEADLESS_START = False
+    IS_HEADLESS_START = True
 
     def __init__(self, home_url: str, project_code: str):
         # self.qlearning: QLearning = QLearning()
@@ -65,7 +65,7 @@ class Crawler:
             await self.browser.close()
             # self.browser = await launch(headless=False, devtools=True)
         # self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
-        self.browser = await launch(headless=self.IS_HEADLESS_START, slowMo=0 if self.IS_HEADLESS_START else 3,
+        self.browser = await launch(headless=self.IS_HEADLESS_START, 
                                     userDataDir='/tmp/myChromeSession',
                                     args=['--no-sandbox', '--disable-setuid-sandbox'])
         # self.browser = await launch(headless=self.IS_HEADLESS_START)
