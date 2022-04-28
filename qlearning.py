@@ -79,7 +79,7 @@ class QLearning:
 
     def generate_most_curious_action_trace(self, root_state: Webstate) -> list[Transition]:
         visit_tuple: Transition = min(self.visit_count_table, key=self.visit_count_table.get)
-        print('count', self.visit_count_table[visit_tuple], 'tuple: ', visit_tuple)
+        #print('count', self.visit_count_table[visit_tuple], 'tuple: ', visit_tuple)
         shortest_path_edges: list[Transition] = find_path(self._graph, root_state, visit_tuple[2],
                                                           cost_func=lambda a, b, c, d: 1).edges
         return shortest_path_edges
