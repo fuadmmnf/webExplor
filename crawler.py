@@ -1,129 +1,274 @@
+import asyncio
+import logging
 import random
-import os
 import time
+import traceback
 from collections import defaultdict
-from urllib.parse import urlparse
+from datetime import datetime
 from typing import Optional
+from urllib.parse import urlparse
 from faker import Faker
+
 import pyppeteer.page
+from pyppeteer.dialog import Dialog
 from pyppeteer import launch
-from preprocessing import Preprocessing
-from qlearning import QLearning
-from models.webstate import Webstate
+
 from models.action import Action
 from models.failure import Failure
+from models.form_group import FormGroup
+from models.webstate import Webstate
+from preprocessing import Preprocessing
+from qlearning import QLearning
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
 
 class Crawler:
     MAXIMUM_STEPS = 8
-    TRACE_SELECTION_INTERVAL = 5
+    TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
+    EPSILON = 0.5
+    IS_HEADLESS_START = False
 
-    def __init__(self, home_url: str):
-        self.qlearning: QLearning = QLearning()
+    def __init__(self, home_url: str, project_code: str):
+        # self.qlearning: QLearning = QLearning()
         self.preprocessing: Preprocessing = Preprocessing()
         self.home_url: str = home_url
+        self.project_code: str = project_code
+        self.home_state = None
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
+        self.webstate_action_exploration_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
+                                                                                                {})  # 0 => unexplored, 1 => active, 2 => complete
+        self.webstate_form_state_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
+                                                                                        {})  # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
         self.application_failures: list[Failure] = []
 
+        self.root_domain: str = urlparse(self.home_url).netloc
+        self.failed_test_cases: list[Testcase] = []
+        self.test_case_iterator = 0
+        self.start_time: time = time.time()
+        self.no_new_state_interval: time = time.time()
+        self.last_reporting_time = time.time()
+
+        logging.basicConfig(
+            filename=f'res/logs/{self.project_code}_{datetime.now().strftime("%m%d-%H%M%S")}.log',
+            filemode='w',
+            format='%(asctime)s %(levelname)-8s %(message)s',
+            level=logging.WARNING,
+            datefmt='%Y-%m-%d %H:%M:%S')
+
     async def init_browser(self) -> None:
-        if self.browser is None:
+
+        if self.browser is not None:
+            await self.browser.close()
             # self.browser = await launch(headless=False, devtools=True)
-            self.browser = await launch(headless=False)
+        # self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
+        self.browser = await launch(headless=self.IS_HEADLESS_START, slowMo=0 if self.IS_HEADLESS_START else 3,
+                                    userDataDir='/tmp/myChromeSession',
+                                    args=['--no-sandbox', '--disable-setuid-sandbox'])
+        # self.browser = await launch(headless=self.IS_HEADLESS_START)
 
-    async def _restart_env(self):
-        await self.browser.newPage()
-        await (await self.browser.pages())[0].close()
-        self.active_page = (await self.browser.pages())[-1]
-        await self.active_page.goto(self.home_url, {'timeout': 0, 'waitUntil': 'networkidle0'})
-        print('Starting testing from home page\n\n')
+    async def _restart_env(self, wait: bool):
+        # await self.browser.newPage()
+        # await (await self.browser.pages())[0].close()
+        await self.init_browser()
+        self.active_page = (await self.browser.pages())[0]
+        # await self.active_page.setViewport({'width': 1366, 'height': 768})
+        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
+        await self.active_page.setCacheEnabled(True)
 
-        @self.active_page.on('console')
-        def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+        # print('Starting testing from home page\n\n')
+
+        async def handle_request_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 failure: Failure = Failure(message.text, self.active_page.url)
+                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+
                 if failure not in self.application_failures:
                     self.application_failures.append(failure)
+                    # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
-    def _get_action_sequence(self, webstate: Webstate):
+        self.active_page.on('console', lambda message: asyncio.ensure_future(handle_request_error(message)))
+
+        async def handle_dialog(dialog: Dialog):
+            if random.uniform(0, 1) > 0.5:
+                await dialog.accept(promptText=Faker().text()[: random.randint(0, 50)])
+            else:
+                await dialog.dismiss()
+
+        self.active_page.on(
+            'dialog',
+            lambda dialog: asyncio.ensure_future(handle_dialog(dialog))
+        )
+
+        await self._initial_setup()
+
+    async def _initial_setup(self):
+
+        if random.uniform(0, 1) > 0.1:
+            if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
+                signin_button = await self.active_page.querySelector('button[type="submit"]')
+                await signin_button.click()
+                await self.active_page.waitForSelector('#authentication_container')
+
+            elif self.project_code == 'pagekit':
+                username_input = await self.active_page.querySelector('input[type="text"]')
+                await username_input.type('admin')
+
+                password_input = await self.active_page.querySelector('input[type="password"]')
+                await password_input.type('asdfghjkl123')
+
+                login_button = await self.active_page.querySelector('button')
+                await login_button.click()
+
+    def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
-                                key=lambda act: self.qlearning.calculate_action_weight(
-                                    webstate, act) if not self.invalid_actions[act] else -1,
-                                reverse=True)
-        best_action_q_val = self.qlearning.q_table[webstate, sorted_actions[0]]
-        action_sequence = [random.choice(
-            [a for a in sorted_actions if self.qlearning.q_table[webstate, a] == best_action_q_val])]
-        return action_sequence
+                                key=lambda act: ([1, 2, 0][self.webstate_action_exploration_dict[(webstate, act)]] if not
+                                self.invalid_actions[act] else -1,
+                                                 random.random()),
+                                reverse=True)  # not dfs, dfs + bfs combination
 
-    async def crawl(self) -> list[Testcase]:
+        # sorted_actions = sorted(webstate.valid_actions,
+        #                         key=lambda act: (
+        #                         [100, 1000, 10][self.webstate_action_exploration_dict[(webstate, act)]] if not
+        #                         self.invalid_actions[act] else -1, random.random()),
+        #                         reverse=True)  # not dfs, dfs + bfs combination
 
-        await self.init_browser()
-        root_domain: str = urlparse(self.home_url).netloc
+        return sorted_actions[0]
 
-        failed_test_cases: list[Testcase] = []
-        test_case_iterator = 0
-        start_time: time = time.time()
-        no_new_state_interval: time = time.time()
+    async def start(self):
+        time_elapsed = (time.time() - self.start_time) / 60
 
+        while time_elapsed <= self.TIME_BUDGET_MINUTES:
+            try:
+                await self.crawl()  # crawl will close program upon finishing
+            except:
+                traceback.print_exc()
+                pass
+            time_elapsed = (time.time() - self.start_time) / 60
+
+        logging.warning(
+            "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
+        logging.warning('Unique Failures: ' + str(len(self.application_failures)))
+        for f in self.application_failures:
+            logging.error(str(f))
+        await self.browser.close()
+
+    async def crawl(self):
         while True:
-            await self._restart_env()
-
+            await self._restart_env(True)
+            # input()
             prev_webstate: Webstate = (await self._get_page_webstate())[0]
+            self.home_state = prev_webstate
 
-            action_sequence = self._get_action_sequence(prev_webstate)
-            testcase: Testcase = [(prev_webstate, action_sequence[0])]
+            action_sequence = [None]
+            testcase: Testcase = [(prev_webstate, None)]
+            discovered_states: list[Webstate] = [prev_webstate]
             action_sequence_iterator = 0
-            while True:
 
+            # for duplicate action reduction
+            webstate_unique_action_discovered: dict[Webstate, Optional[list[Action, int]]] = defaultdict(
+                lambda: None, {})  # webstate non duplicate action list with discovery status
+            action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
+
+            # redo entire process
+            rootstate_actions_exploration_left = len([a for a in prev_webstate.valid_actions or [] if
+                                                      self.webstate_action_exploration_dict[
+                                                          (prev_webstate, a)] < 2 and not self.invalid_actions[a]])
+            if rootstate_actions_exploration_left == 0:
+                self.webstate_action_exploration_dict.clear()
+
+            # redo entire process
+
+            while True:
                 # apply action here check if error rises in current page environemnt: p, failed := env ( p', act),
                 # if failed append current_test in failed_test_cases list
-                print('prev url: ', self.active_page.url)
-                failed = await self._perform_action(self.active_page, action_sequence)
-                print('next url: ', self.active_page.url)
+                # print('prev url: ', self.active_page.url)
+                action: Action = action_sequence.pop(0)
+                try:
+                    failed = await self._perform_action(prev_webstate, action)
+                except:
+                    failed = False
+                # print('next url: ', self.active_page.url)
                 if failed:
-                    failed_test_cases.append(testcase)
+                    self.failed_test_cases.append(testcase)
 
                 # s, va = get_webstate(p), get new state after performing action(s)
                 w: tuple[
                     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                 next_webstate = w[0]
-                # check if stuck for some while
-                if not w[1] and ((time.time() - no_new_state_interval) / 60.0 > .5):
-                    # pass  ### DUE - initiate dfa ###
-                    await self._restart_env()
-                    action_sequence = self.qlearning.generate_most_curious_action_trace()
-                    print('dfa', action_sequence)
-                    action_sequence_iterator = len(action_sequence)
-                    no_new_state_interval = time.time()
-                    continue
-                else:
-                    no_new_state_interval = time.time()
 
-                # calculate curiosity for transition s`, a, s
-                action: Action = action_sequence[0]
-                if urlparse(next_webstate.url).netloc != root_domain:
+
+
+                if urlparse(next_webstate.url).netloc != self.root_domain:  # action is useless for testing
+                    print('invalid action detected', action)
                     self.invalid_actions[action] = True
                     break
 
-                self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
+                # steps after visiting a state
+                # self.qlearning.visit_state(prev_webstate, action, next_webstate)  # track count of state visit
+
+                is_next_state_new_in_execution_trace = webstate_unique_action_discovered[
+                                                           next_webstate] is None
+                if is_next_state_new_in_execution_trace:
+                    non_duplicate_actions = [a for a in next_webstate.valid_actions if
+                                             not action_discovered_dict[
+                                                 a]]  # state actions - discovered actions
+                    webstate_unique_action_discovered[next_webstate] = non_duplicate_actions
+
+                    for a in non_duplicate_actions:  # make actions found
+                        action_discovered_dict[a] = True
+
+                next_webstate.valid_actions = [a for a in webstate_unique_action_discovered[
+                    next_webstate] if not self.invalid_actions[
+                    a]]  # what if new action found for similar state???
+
+                # if "owners/" in next_webstate.url:
+                #     logging.info(f'exploration dict:  {self.webstate_action_exploration_dict}')
 
                 # self.qlearning.calculate_curiosity(prev_webstate, action, new_webstate)
 
                 # train policy for state
-                # self.qlearning.update_q_function(prev_webstate, action)
+                # self.qlearning.update_q_function(prev_webstate, action, False)
 
-                # update dfa
-                ## DUE ##
+                # if next_webstate not in discovered_states and next_webstate != prev_webstate:
+                #     self.qlearning.update_q_function(prev_webstate, action, False)
+                #     discovered_states.append(next_webstate)
+                # else:
+                #     self.qlearning.update_q_function(prev_webstate, action, True)
 
+                # TO-DO need to define formula for form interaction exploration completeness
+                if type(action) is FormGroup:
+                    self.webstate_form_state_dict[(prev_webstate, action)] = self.webstate_form_state_dict[(
+                        prev_webstate,
+                        action)] + 1
+                    self.webstate_action_exploration_dict[
+                        (prev_webstate,
+                         action)] = 1 if self.webstate_form_state_dict[(prev_webstate, action)] < 2 else 2
+                else:
+                    nextstate_actions_exploration_left = len([a for a in next_webstate.valid_actions or [] if
+                                                              self.webstate_action_exploration_dict[
+                                                                  (next_webstate, a)] < 2])
+                    self.webstate_action_exploration_dict[
+                        (prev_webstate,
+                         action)] = 1 if nextstate_actions_exploration_left > 0 and discovered_states.index(
+                        prev_webstate) < discovered_states.index(next_webstate) else 2
+                    # if discovered_states.index(
+                    #     prev_webstate) < discovered_states.index(next_webstate):
+                    #     self.invalid_actions[action] = True # experimental
                 # append action action to test_case
-                testcase.append((next_webstate, action))
+                for s in action.interaction_sequence if action is not None else [None]:
+                    testcase.append((next_webstate, s))
 
                 # update available_actions with actions(sorted) of updated state
-                action_sequence = self._get_action_sequence(next_webstate)
+                if not len(next_webstate.valid_actions or []):
+                    break
+
+                if len(action_sequence) == 0:
+                    action_sequence = [self._select_epsilon_greedy_action(next_webstate)]
+
                 ########testing q-values#########
                 # print(self.qlearning.visit_count_table)
                 # print(self.qlearning.state_action_count)
@@ -135,14 +280,11 @@ class Crawler:
                 # w: tuple[
                 #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
                 # demo_webstate = w[0]
-                print(prev_webstate, action, next_webstate)
-                # print('urls: ', prev_webstate.url, next_webstate.url)
-                for a in next_webstate.valid_actions:
-                    print(a, self.qlearning.q_table[(
-                                              next_webstate, a)] if not self.invalid_actions[a] else -1)
-
-                print('\n\n')
-
+                # print(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+                # print('url s: ', prev_webstate.url, next_webstate.url)
+                # for a in next_webstate.valid_actions:
+                #     print(f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
+                # print('\n\n')
                 # current_page = p, current_state = s
                 prev_webstate = next_webstate
 
@@ -150,116 +292,33 @@ class Crawler:
                 action_sequence_iterator = action_sequence_iterator + 1
                 if action_sequence_iterator > self.MAXIMUM_STEPS:
                     break
-            test_case_iterator = test_case_iterator + 1
-            if (time.time() - start_time) / 60.0 > 2:
+
+            test_case_iterator = self.test_case_iterator + 1
+            time_elapsed = (time.time() - self.start_time) / 60
+
+            if time_elapsed > self.TIME_BUDGET_MINUTES:
                 break
 
-        print('Failures: \n\n\n\n\n\n ')
-        print(self.application_failures)
-        await self.browser.close()
-        return failed_test_cases
+        return
+
+    # return self.failed_test_cases
 
     async def _get_page_webstate(self) -> tuple[Webstate, bool]:
-
+        # await self.active_page.waitFor(50)
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
-        # print(webstate.valid_actions[0])
         return webstate
 
-
-    async def _perform_action(self, page: pyppeteer.page.Page, valid_actions: list[Optional[Action]]) -> bool:
+    async def _perform_action(self, webstate: Webstate, valid_action: Optional[Action]) -> bool:
         is_failing = False
         # Get page error events for action
         ## DUE ##
 
         # Apply action(s) to page
-        for valid_action in valid_actions:
+        # print('valid action:', valid_action)
+        if valid_action is None:
+            return is_failing
+        tag = await valid_action.interact(self.webstate_form_state_dict[(webstate, valid_action)])
+        if tag == "A":
+            await self.active_page.waitForNavigation({'timeout': 500})
 
-            if valid_action is None:
-                continue
-
-            tag_name = await (await valid_action.getProperty('tagName')).jsonValue()
-            # print('tag name: ' + tag_name)
-            if tag_name == 'A':
-                # for self page navigation
-                # link = await (await valid_action.getProperty('href')).jsonValue()
-                # if link == 'javascript:void(0)':
-                #     self.invalid_actions[valid_action] = True
-                #     continue
-                #
-                # await page.goto(link.__str__())
-                #######
-                await valid_action.click()
-
-            elif tag_name == 'BUTTON':
-                await valid_action.click()
-            elif tag_name == 'SELECT':
-                options = await valid_action.querySelectorAll('option')
-                if len(options) > 0:
-                    await valid_action.querySelectorEval('option:nth-child(' + str(random.randint(1, len(options))) + ')',
-                                                         '(node => node.selected = true)')
-            elif tag_name == 'INPUT':
-                faker: Faker = Faker()
-                input_type = await (await valid_action.getProperty('type')).jsonValue()
-                # print('input type: ' + input_type)
-                if input_type == 'button':
-                    await valid_action.click()
-                elif input_type == 'checkbox':
-                    await valid_action.click()
-                elif input_type == 'color':
-                    # not working
-                    # r = lambda: random.randint(0, 255)
-                    # color = '#%02X%02X%02X' % (r(), r(), r())
-                    # print(color)
-                    # await valid_action.type(color)
-                    pass
-
-                elif input_type == 'date':
-                    await valid_action.type(faker.date(pattern='%m-%d-%Y'))
-                elif input_type == 'datetime-local':
-                    await valid_action.type(faker.date_time().strftime('%Y-%m-%dT%H:%M%p'))
-                elif input_type == 'email':
-                    await valid_action.type(faker.email())
-                elif input_type == 'file':
-                    file_path = random.choice(os.listdir(os.path.join(os.path.dirname(__file__), 'res/file_types')))
-                    await valid_action.uploadFile(file_path)
-                elif input_type == 'hidden':
-                    pass
-                elif input_type == 'image':
-                    await valid_action.click()
-                elif input_type == 'month':
-                    await valid_action.type(faker.date_time().strftime('%Y-%m'))
-                elif input_type == 'number':
-                    await valid_action.type(str(random.random() * random.randrange(1000)))
-                elif input_type == 'password':
-                    await valid_action.type(faker.password())
-                elif input_type == 'radio':
-                    await valid_action.click()
-                elif input_type == 'range':
-                    # not working
-                    # rand_range = str(random.randint(0, 100))
-                    # print(rand_range)
-                    # await valid_action.type()
-                    pass
-                elif input_type == 'reset':
-                    await valid_action.click()
-                elif input_type == 'search':  # potential
-                    await valid_action.type(faker.text())
-                elif input_type == 'submit':
-                    await valid_action.click()
-                elif input_type == 'tel':
-                    await valid_action.type(faker.phone_number())
-                elif input_type == 'text':
-                    await valid_action.type(faker.text())
-                elif input_type == 'time':
-                    await valid_action.type(faker.date_time().strftime('%H:%M%p'))
-                elif input_type == 'url':
-                    await valid_action.type(faker.url())
-                elif input_type == 'week':
-                    await valid_action.type(faker.date_time().strftime('%Y-W%U'))
-
-        # Remove page error events for action
-        ## DUE ##
-
-        # await page.waitForNavigation({'waitUntil': 'networkidle0'})
-        await self.active_page.waitFor(50)
         return is_failing
