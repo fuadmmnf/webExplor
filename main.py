@@ -8,7 +8,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--project', help='Mention project code, for example: trello')
 args = parser.parse_args()
 
-if __name__ == '__main__':
+
+async def main():
     # if os.path.isdir('/tmp/myChromeSession'):
     #     shutil.rmtree("/tmp/myChromeSession")
     #
@@ -31,5 +32,9 @@ if __name__ == '__main__':
 
     crawler: Crawler = Crawler(website[0], website[1])
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(crawler.start())
+    loop.run_until_complete(await crawler.start())
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
     sys.exit(0)

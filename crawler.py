@@ -3,7 +3,6 @@ import os
 import logging
 import sys
 import time
-import traceback
 import asyncio
 from datetime import datetime
 from collections import defaultdict
@@ -77,15 +76,15 @@ class Crawler:
         await self.active_page.setCacheEnabled(True)
 
         # print('Starting testing from home page\n\n')
-
+        this = self
         async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 self.is_failing = True
-                failure: Failure = Failure(message.text, self.active_page.url)
-                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+                failure: Failure = Failure(message.text, this.active_page.url)
+                logging.error("Failure: " + str(len(this.application_failures)) + str(failure))
 
-                if failure not in self.application_failures:
-                    self.application_failures.append(failure)
+                if failure not in this.application_failures:
+                    this.application_failures.append(failure)
                     # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
         self.active_page.on('console', lambda message: asyncio.ensure_future(handle_console_error(message)))
@@ -97,16 +96,16 @@ class Crawler:
             res = http_request.response
             if req_failure is not None:
                 failing = True
-                failure = Failure(req_failure["errorText"], self.active_page.url)
+                failure = Failure(req_failure["errorText"], this.active_page.url)
             if res is not None:
                 if 400 <= res.status < 600:
                     failing = True
-                    failure = Failure(await res.text(), self.active_page.url)
+                    failure = Failure(f'status code({res.status}) -> {await res.text()}', this.active_page.url)
 
             if failing:
-                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
-                if failure not in self.application_failures:
-                    self.application_failures.append(failure)
+                logging.error("Failure: " + str(len(this.application_failures)) + str(failure))
+                if failure not in this.application_failures:
+                    this.application_failures.append(failure)
                     # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
         self.active_page.on('requestfailed', lambda request: asyncio.ensure_future(handle_request_error(request)))
@@ -159,7 +158,8 @@ class Crawler:
         logging.warning("\nTest cases: ")
         for test in self.failed_test_cases:
             logging.error(" => ".join(iter([f'{str(t1[1])}' for t1 in test])))
-        await self.browser.close()
+        if self.browser is not None:
+            await self.browser.close()
 
     async def crawl(self):
         try:
