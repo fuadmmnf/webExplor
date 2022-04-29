@@ -36,6 +36,7 @@ class Crawler:
         self.home_url: str = home_url
         self.project_code: str = project_code
         self.home_state = None
+        self.is_failing = False
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
@@ -79,6 +80,7 @@ class Crawler:
 
         async def handle_request_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
+                self.is_failing = True
                 failure: Failure = Failure(message.text, self.active_page.url)
                 logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
@@ -123,7 +125,6 @@ class Crawler:
             try:
                 await self.crawl()  # crawl will close program upon finishing
             except:
-                traceback.print_exc()
                 pass
             time_elapsed = (time.time() - self.start_time) / 60
         logging.warning("Finished")
@@ -142,7 +143,7 @@ class Crawler:
             self.home_state = prev_webstate
 
             action_sequence = [None]
-            testcase: Testcase = [(prev_webstate, None)]
+            testcase: Testcase = []
             discovered_states: list[Webstate] = [prev_webstate]
             action_sequence_iterator = 0
 
@@ -152,11 +153,14 @@ class Crawler:
                 # print('prev url: ', self.active_page.url)
                 action: Action = action_sequence.pop(0)
                 try:
-                    failed = await self._perform_action(action)
+                    self.is_failing = False
+                    await self._perform_action(action)
                 except:
-                    failed = False
+                    pass
+                # append action action to test_case
+                testcase.append((prev_webstate, action))
                 # print('next url: ', self.active_page.url)
-                if failed:
+                if self.is_failing:
                     self.failed_test_cases.append(testcase)
 
                 # s, va = get_webstate(p), get new state after performing action(s)
@@ -170,7 +174,7 @@ class Crawler:
                     prev_webstate: Webstate = (await self._get_page_webstate())[0]
                     edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
                     #print('Visit count table for DFA: \n ')
-                    #print('edges from dfa', edges)
+                    print('edges from dfa', edges)
                     action_sequence = list(map(lambda t: t[1], edges))
                     action_sequence.insert(0, None)
                     action_sequence_iterator = len(action_sequence)
@@ -204,8 +208,7 @@ class Crawler:
                 else:
                     self.qlearning.update_q_function(prev_webstate, action, True)
 
-                # append action action to test_case
-                testcase.append((next_webstate, action))
+
 
                 # update available_actions with actions(sorted) of updated state
                 if not len(next_webstate.valid_actions):
@@ -253,15 +256,14 @@ class Crawler:
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
         return webstate
 
-    async def _perform_action(self, valid_action: Optional[Action]) -> bool:
-        is_failing = False
+    async def _perform_action(self, valid_action: Optional[Action]):
 
         # Apply action(s) to page
         # print('valid action:', valid_action)
         if valid_action is None:
-            return is_failing
+            return
         tag = await valid_action.interact()
         if tag == "A":
             await self.active_page.waitForNavigation({'timeout': 500})
 
-        return is_failing
+        return

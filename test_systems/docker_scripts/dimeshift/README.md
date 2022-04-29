@@ -12,7 +12,7 @@ Inside the container, start the application server and MySQL:
 
 The application shall run at the address:
 
-`http://localhost:3000`
+`http://localhost:3001`
 
 ### Admin Credentials
 No user is pre-registered. In order to use the functionalities of the application a new user has to be registered.

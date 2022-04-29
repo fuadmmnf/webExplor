@@ -4,14 +4,14 @@ usage() {
   echo "Run docker container with dimeshift application"
   echo "Valid options:"
   echo " -h, prints this message."
-  echo " -a PORT [3000], assigns application server binding port to localhost. Must be a number!!"
+  echo " -a PORT [], assigns application server binding port to localhost. Must be a number!!"
   echo " -d PORT [3306], assigns database binding port to localhost. Must be a number!!"
   echo " -p yes|no [no], run docker for production or not"
   echo " -n STRING [default], assigns a name to the running container (mandatory for production usage)"
 }
 
-PORT_APP=3000
-PORT_DB=3306
+PORT_APP=3001
+PORT_DB=3307
 PRODUCTION=no
 CONTAINER_NAME=default
 
