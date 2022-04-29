@@ -97,11 +97,11 @@ class Crawler:
             res = http_request.response
             if req_failure is not None:
                 failing = True
-                failure = Failure(f'{res.status} {req_failure["errorText"]}', self.active_page.url)
+                failure = Failure(req_failure["errorText"], self.active_page.url)
             if res is not None:
                 if 400 <= res.status < 600:
                     failing = True
-                    failure = Failure(f'{res.status} {await res.text()}', self.active_page.url)
+                    failure = Failure(await res.text(), self.active_page.url)
 
             if failing:
                 logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
