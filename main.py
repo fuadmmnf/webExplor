@@ -32,5 +32,4 @@ if __name__ == '__main__':
     crawler: Crawler = Crawler(website[0], website[1])
     loop = asyncio.get_event_loop()
     loop.run_until_complete(crawler.start())
-    for task in asyncio.Task.all_tasks(loop):
-        task.cancel()
+    sys.exit(0)

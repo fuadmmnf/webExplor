@@ -13,6 +13,7 @@ from typing import Optional
 import numpy.random
 from faker import Faker
 import pyppeteer.page
+import pyppeteer.network_manager
 from pyppeteer import launch
 from preprocessing import Preprocessing
 from qlearning import QLearning
@@ -56,7 +57,6 @@ class Crawler:
             level=logging.WARNING,
             datefmt='%Y-%m-%d %H:%M:%S')
 
-
     async def init_browser(self) -> None:
         if self.browser is not None:
             await self.browser.close()
@@ -78,7 +78,7 @@ class Crawler:
 
         # print('Starting testing from home page\n\n')
 
-        async def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+        async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 self.is_failing = True
                 failure: Failure = Failure(message.text, self.active_page.url)
@@ -88,7 +88,29 @@ class Crawler:
                     self.application_failures.append(failure)
                     # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
-        self.active_page.on('console', lambda message: asyncio.ensure_future(handle_request_error(message)))
+        self.active_page.on('console', lambda message: asyncio.ensure_future(handle_console_error(message)))
+
+        async def handle_request_error(http_request: pyppeteer.network_manager.Request):
+            failing = False
+            failure = None
+            req_failure = http_request.failure()
+            res = http_request.response
+            if req_failure is not None:
+                failing = True
+                failure = Failure(f'{res.status} {req_failure["errorText"]}', self.active_page.url)
+            if res is not None:
+                if 400 <= res.status < 600:
+                    failing = True
+                    failure = Failure(f'{res.status} {await res.text()}', self.active_page.url)
+
+            if failing:
+                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+                if failure not in self.application_failures:
+                    self.application_failures.append(failure)
+                    # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+
+        self.active_page.on('requestfailed', lambda request: asyncio.ensure_future(handle_request_error(request)))
+        self.active_page.on('requestfinished', lambda request: asyncio.ensure_future(handle_request_error(request)))
 
         await self._initial_setup(wait)
 
@@ -133,6 +155,10 @@ class Crawler:
         logging.warning('Unique Failures: ' + str(len(self.application_failures)))
         for f in self.application_failures:
             logging.error(str(f))
+
+        logging.warning("\nTest cases: ")
+        for test in self.failed_test_cases:
+            logging.error(" => ".join(iter([f'{str(t1[1])}' for t1 in test])))
         await self.browser.close()
 
     async def crawl(self):
@@ -173,13 +199,13 @@ class Crawler:
                     await self._restart_env(False)
                     prev_webstate: Webstate = (await self._get_page_webstate())[0]
                     edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
-                    #print('Visit count table for DFA: \n ')
+                    # print('Visit count table for DFA: \n ')
                     print('edges from dfa', edges)
                     action_sequence = list(map(lambda t: t[1], edges))
                     action_sequence.insert(0, None)
                     action_sequence_iterator = len(action_sequence)
-                    #print('DFA', action_sequence_iterator, action_sequence)
-                    #print('\n')
+                    # print('DFA', action_sequence_iterator, action_sequence)
+                    # print('\n')
                     testcase = [(prev_webstate, None)]
 
                     self.no_new_state_interval = time.time()
@@ -207,8 +233,6 @@ class Crawler:
                     discovered_states.append(next_webstate)
                 else:
                     self.qlearning.update_q_function(prev_webstate, action, True)
-
-
 
                 # update available_actions with actions(sorted) of updated state
                 if not len(next_webstate.valid_actions):
