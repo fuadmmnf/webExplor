@@ -81,7 +81,7 @@ class Crawler:
             if message.type == 'error':
                 self.is_failing = True
                 failure: Failure = Failure(message.text, this.active_page.url)
-                logging.error("Failure: " + str(len(this.application_failures)) + str(failure))
+                logging.error("Failure: " + str(failure))
 
                 if failure not in this.application_failures:
                     this.application_failures.append(failure)
@@ -103,7 +103,7 @@ class Crawler:
                     failure = Failure(f'status code({res.status}) -> {await res.text()}', this.active_page.url)
 
             if failing:
-                logging.error("Failure: " + str(len(this.application_failures)) + str(failure))
+                logging.error("Failure: " + str(failure))
                 if failure not in this.application_failures:
                     this.application_failures.append(failure)
                     # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
