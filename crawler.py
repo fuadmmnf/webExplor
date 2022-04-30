@@ -8,8 +8,10 @@ from datetime import datetime
 from typing import Optional
 from urllib.parse import urlparse
 from faker import Faker
+import json
 
 import pyppeteer.page
+from pyppeteer.network_manager import Request
 from pyppeteer.dialog import Dialog
 from pyppeteer import launch
 
@@ -18,7 +20,6 @@ from models.failure import Failure
 from models.form_group import FormGroup
 from models.webstate import Webstate
 from preprocessing import Preprocessing
-from qlearning import QLearning
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
@@ -28,14 +29,16 @@ class Crawler:
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
-    IS_HEADLESS_START = True
+    IS_HEADLESS_START = False
 
-    def __init__(self, home_url: str, project_code: str):
-        # self.qlearning: QLearning = QLearning()
+    def __init__(self, home_url: str, project_code: str, session_dir: str):
         self.preprocessing: Preprocessing = Preprocessing()
         self.home_url: str = home_url
         self.project_code: str = project_code
+        self.session_dir: str = session_dir
+        self.log_name = f'res/logs/my_approach/{self.project_code}_{datetime.now().strftime("%m%d-%H%M%S")}'
         self.home_state = None
+        self.is_failing = False
         self.browser: Optional[pyppeteer.page.Browser] = None
         self.active_page: Optional[pyppeteer.page.Page] = None
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
@@ -44,6 +47,10 @@ class Crawler:
         self.webstate_form_state_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
                                                                                         {})  # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
         self.application_failures: list[Failure] = []
+        self.coverage_dict: dict[str, list[tuple[int, int]]] = defaultdict(lambda: [],
+                                                                           {})  # js script to list of executed ranges
+        self.coverage_dump_file = open(self.log_name + '_coverage.log', "w")
+        self.actions_log_file = open(self.log_name + '_actions.log', "w")
 
         self.root_domain: str = urlparse(self.home_url).netloc
         self.failed_test_cases: list[Testcase] = []
@@ -53,7 +60,7 @@ class Crawler:
         self.last_reporting_time = time.time()
 
         logging.basicConfig(
-            filename=f'res/logs/{self.project_code}_{datetime.now().strftime("%m%d-%H%M%S")}.log',
+            filename=self.log_name + '.log',
             filemode='w',
             format='%(asctime)s %(levelname)-8s %(message)s',
             level=logging.WARNING,
@@ -66,7 +73,7 @@ class Crawler:
             # self.browser = await launch(headless=False, devtools=True)
         # self.browser = await launch(headless=self.IS_HEADLESS_START, args=['--disable-dev-shm-usage'])
         self.browser = await launch(headless=self.IS_HEADLESS_START,
-                                    userDataDir='/tmp/myChromeSession',
+                                    userDataDir=self.session_dir,
                                     args=['--no-sandbox', '--disable-setuid-sandbox'])
         # self.browser = await launch(headless=self.IS_HEADLESS_START)
 
@@ -76,21 +83,47 @@ class Crawler:
         await self.init_browser()
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
+        await self.active_page.coverage.startJSCoverage()
+
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         await self.active_page.setCacheEnabled(True)
 
         # print('Starting testing from home page\n\n')
+        this = self
 
-        async def handle_request_error(message: pyppeteer.page.ConsoleMessage):
+        async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
-                failure: Failure = Failure(message.text, self.active_page.url)
-                logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+                self.is_failing = True
+                failure: Failure = Failure(message.text, this.active_page.url)
+                logging.error("Failure: " + str(failure))
 
-                if failure not in self.application_failures:
-                    self.application_failures.append(failure)
+                if failure not in this.application_failures:
+                    this.application_failures.append(failure)
                     # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
 
-        self.active_page.on('console', lambda message: asyncio.ensure_future(handle_request_error(message)))
+        self.active_page.on('console', lambda message: asyncio.ensure_future(handle_console_error(message)))
+
+        async def handle_request_error(http_request: pyppeteer.network_manager.Request):
+            failing = False
+            failure = None
+            req_failure = http_request.failure()
+            res = http_request.response
+            if req_failure is not None:
+                failing = True
+                failure = Failure(req_failure["errorText"], this.active_page.url)
+            if res is not None:
+                if 400 <= res.status < 600:
+                    failing = True
+                    failure = Failure(f'status code({res.status}) -> {await res.text()}', this.active_page.url)
+
+            if failing:
+                logging.error("Failure: " + str(failure))
+                if failure not in this.application_failures:
+                    this.application_failures.append(failure)
+                    # logging.error("Failure: " + str(len(self.application_failures)) + str(failure))
+
+        self.active_page.on('requestfailed', lambda request: asyncio.ensure_future(handle_request_error(request)))
+        self.active_page.on('requestfinished', lambda request: asyncio.ensure_future(handle_request_error(request)))
 
         async def handle_dialog(dialog: Dialog):
             if random.uniform(0, 1) > 0.5:
@@ -107,28 +140,31 @@ class Crawler:
 
     async def _initial_setup(self):
 
-        if random.uniform(0, 1) > 0.1:
-            if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
-                signin_button = await self.active_page.querySelector('button[type="submit"]')
-                await signin_button.click()
-                await self.active_page.waitForSelector('#authentication_container')
+        if not random.uniform(0, 1) > 0.1:
+            try:
+                if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
+                    signin_button = await self.active_page.querySelector('button[type="submit"]')
+                    await signin_button.click()
+                    await self.active_page.waitForSelector('#authentication_container')
 
-            elif self.project_code == 'pagekit':
-                username_input = await self.active_page.querySelector('input[type="text"]')
-                await username_input.type('admin')
+                elif self.project_code == 'pagekit':
+                    username_input = await self.active_page.querySelector('input[type="text"]')
+                    await username_input.type('admin')
 
-                password_input = await self.active_page.querySelector('input[type="password"]')
-                await password_input.type('asdfghjkl123')
+                    password_input = await self.active_page.querySelector('input[type="password"]')
+                    await password_input.type('asdfghjkl123')
 
-                login_button = await self.active_page.querySelector('button')
-                await login_button.click()
+                    login_button = await self.active_page.querySelector('button')
+                    await login_button.click()
+            except:
+                pass  # if auth session holds and element not found, no need to handle error as already logged in
 
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
                                 key=lambda act: (
-                                [1, 2, 0][self.webstate_action_exploration_dict[(webstate, act)]] if not
-                                self.invalid_actions[act] else -1,
-                                random.random()),
+                                    [1, 2, 0][self.webstate_action_exploration_dict[(webstate, act)]] if not
+                                    self.invalid_actions[act] else -1,
+                                    random.random()),
                                 reverse=True)  # not dfs, dfs + bfs combination
 
         # sorted_actions = sorted(webstate.valid_actions,
@@ -139,7 +175,37 @@ class Crawler:
 
         return sorted_actions[0]
 
+    async def save_code_coverage(self):
+        try:
+            jsCoverage = await self.active_page.coverage.stopJSCoverage()
+        except:
+            return
+
+        self.coverage_dump_file.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}:\n')
+        json.dump(jsCoverage, self.coverage_dump_file)
+        self.coverage_dump_file.write('\n')
+
+        # for entry in jsCoverage:
+        #     for range in entry['ranges']:
+        #         self.coverage_dict[entry['text']] = self.coverage_dict[entry['text']] + [(range['start'], range['end'])]
+
+    def report_statistics(self):
+        # total_bytes = 0
+        # used_bytes = 0
+        #
+        # coverages = {k: merge_intervals(v) for (k, v) in self.coverage_dict.items()}
+        # for script in coverages.keys():
+        #     total_bytes += len(script)
+        #     for r in coverages[script]:
+        #         used_bytes += r[1] - r[0] - 1
+        #
+        # percentage = (used_bytes / total_bytes) * 100
+        # logging.warning(f'(Failure Count, Coverage Percentage) : ({len(self.application_failures)}, {percentage})')
+
+        logging.warning(f'(Failure Count) : ({len(self.application_failures)})"')
+
     async def start(self):
+        logging.warning("Starting")
         time_elapsed = (time.time() - self.start_time) / 60
 
         while time_elapsed <= self.TIME_BUDGET_MINUTES:
@@ -147,15 +213,28 @@ class Crawler:
                 await self.crawl()  # crawl will close program upon finishing
             except:
                 traceback.print_exc()
-                pass
+                # pass
+            await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
 
+            if (time.time() - self.last_reporting_time) / 60 >= 1:
+                self.report_statistics()
+                self.last_reporting_time = time.time()
+        self.coverage_dump_file.close()
+        self.actions_log_file.close()
+        logging.warning("Finished")
+        self.report_statistics()
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
         logging.warning('Unique Failures: ' + str(len(self.application_failures)))
         for f in self.application_failures:
             logging.error(str(f))
-        await self.browser.close()
+
+        logging.warning("\nTest cases: ")
+        for test in self.failed_test_cases:
+            logging.error(" => ".join(iter([f'{str(t1[1])}' for t1 in test])))
+        if self.browser is not None:
+            await self.browser.close()
 
     async def crawl(self):
         await self._restart_env(True)
@@ -164,7 +243,7 @@ class Crawler:
         self.home_state = prev_webstate
 
         action_sequence = [None]
-        testcase: Testcase = [(prev_webstate, None)]
+        testcase: Testcase = []
         discovered_states: list[Webstate] = [prev_webstate]
         action_sequence_iterator = 0
 
@@ -188,11 +267,15 @@ class Crawler:
             # print('prev url: ', self.active_page.url)
             action: Action = action_sequence.pop(0)
             try:
-                failed = await self._perform_action(prev_webstate, action)
+                self.is_failing = False
+                await self._perform_action(prev_webstate, action)
             except:
-                failed = False
+                pass
+            # append action action to test_case
+            for s in action.interaction_sequence if action is not None else [None]:
+                testcase.append((prev_webstate, s))
             # print('next url: ', self.active_page.url)
-            if failed:
+            if self.is_failing:
                 self.failed_test_cases.append(testcase)
 
             # s, va = get_webstate(p), get new state after performing action(s)
@@ -231,9 +314,9 @@ class Crawler:
             # train policy for state
             # self.qlearning.update_q_function(prev_webstate, action, False)
 
-            # if next_webstate not in discovered_states and next_webstate != prev_webstate:
-            #     self.qlearning.update_q_function(prev_webstate, action, False)
-            #     discovered_states.append(next_webstate)
+            if next_webstate not in discovered_states and next_webstate != prev_webstate:
+                #     self.qlearning.update_q_function(prev_webstate, action, False)
+                discovered_states.append(next_webstate)
             # else:
             #     self.qlearning.update_q_function(prev_webstate, action, True)
 
@@ -257,8 +340,6 @@ class Crawler:
                 #     prev_webstate) < discovered_states.index(next_webstate):
                 #     self.invalid_actions[action] = True # experimental
             # append action action to test_case
-            for s in action.interaction_sequence if action is not None else [None]:
-                testcase.append((next_webstate, s))
 
             # update available_actions with actions(sorted) of updated state
             if not len(next_webstate.valid_actions or []):
@@ -298,17 +379,16 @@ class Crawler:
         webstate: tuple[Webstate, bool] = await self.preprocessing.extract_webstate_and_is_new_state(self.active_page)
         return webstate
 
-    async def _perform_action(self, webstate: Webstate, valid_action: Optional[Action]) -> bool:
-        is_failing = False
+    async def _perform_action(self, webstate: Webstate, valid_action: Optional[Action]):
         # Get page error events for action
         ## DUE ##
 
         # Apply action(s) to page
         # print('valid action:', valid_action)
         if valid_action is None:
-            return is_failing
+            return
         tag = await valid_action.interact(self.webstate_form_state_dict[(webstate, valid_action)])
         if tag == "A":
-            await self.active_page.waitForNavigation({'timeout': 500})
+            await self.active_page.waitForNavigation({'timeout': 1000})
 
-        return is_failing
+        return
