@@ -10,9 +10,9 @@ args = parser.parse_args()
 
 
 async def main():
-    # if os.path.isdir('/tmp/myChromeSession'):
-    #     shutil.rmtree("/tmp/myChromeSession")
-    #
+    if os.path.isdir('/tmp/myChromeSession'):
+        shutil.rmtree("/tmp/myChromeSession")
+
 
     websites = [
         ("http://localhost:8080", 'petclinic'), ("http://localhost:3000/pagekit/index.php/admin/", 'pagekit'),
@@ -28,7 +28,7 @@ async def main():
             sys.exit(1)
         website = tups[0]
     else:
-        website = websites[2]
+        website = websites[4]
 
     crawler: Crawler = Crawler(website[0], website[1])
     loop = asyncio.get_event_loop()
