@@ -29,7 +29,7 @@ class Crawler:
     TRACE_SELECTION_INTERVAL = 2
     TIME_BUDGET_MINUTES = 30
     EPSILON = 0.5
-    IS_HEADLESS_START = False
+    IS_HEADLESS_START = True
 
     def __init__(self, home_url: str, project_code: str, session_dir: str):
         self.preprocessing: Preprocessing = Preprocessing()

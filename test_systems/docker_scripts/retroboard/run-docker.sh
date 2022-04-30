@@ -9,7 +9,7 @@ usage() {
   echo " -n STRING [default], assigns a name to the running container (mandatory for production usage)"
 }
 
-PORT_APP=4000
+PORT_APP=4001
 PRODUCTION=no
 CONTAINER_NAME=default
 
