@@ -1,18 +1,27 @@
 def merge_intervals(ranges: list[tuple[int, int]]):
-    if ranges is None or len(ranges) == 0:
-        return None
+    ranges.sort(key=lambda x: x[0])
 
-    result = [(ranges[0][0], ranges[0][1])]
-
-    for i in range(1, len(ranges)):
-        x1 = ranges[i][0]
-        y1 = ranges[i][1]
-        x2 = result[len(result) - 1][0]
-        y2 = result[len(result) - 1][1]
-
-        if y2 >= x1:
-            result[len(result) - 1] = (result[len(result) - 1][0], max(y1, y2))
+    # array to hold the merged intervals
+    res = []
+    s = -1000000000
+    max = -1000000000
+    for i in range(len(ranges)):
+        a = ranges[i]
+        if a[0] > max:
+            if i != 0:
+                res.append((s, max))
+            max = a[1]
+            s = a[0]
         else:
-            result.append((x1, y1))
+            if a[1] >= max:
+                max = a[1]
 
-    return result
+    # 'max' value gives the last point of
+    # that particular interval
+    # 's' gives the starting point of that interval
+    # 'm' array contains the list of all merged intervals
+
+    if max != -100000 and [s, max] not in res:
+        res.append((s, max))
+
+    return res

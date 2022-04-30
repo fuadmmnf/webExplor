@@ -2,7 +2,11 @@ import asyncio
 from crawler import Crawler
 import shutil
 import os
-import sys, argparse
+import sys
+import argparse
+
+import nest_asyncio
+nest_asyncio.apply()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--project', help='Mention project code, for example: trello')
@@ -10,9 +14,6 @@ args = parser.parse_args()
 
 
 async def main():
-    if os.path.isdir('/tmp/myChromeSession'):
-        shutil.rmtree("/tmp/myChromeSession")
-
 
     websites = [
         ("http://localhost:8080", 'petclinic'), ("http://localhost:3000/pagekit/index.php/admin/", 'pagekit'),
@@ -28,9 +29,13 @@ async def main():
             sys.exit(1)
         website = tups[0]
     else:
-        website = websites[4]
+        website = websites[2]
 
-    crawler: Crawler = Crawler(website[0], website[1])
+    session = '/tmp/myChromeSession-' + website[1] + str(hash(website[1]))
+    if os.path.isdir(session):
+        shutil.rmtree(session)
+
+    crawler: Crawler = Crawler(website[0], website[1], session)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(await crawler.start())
 
