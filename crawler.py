@@ -8,7 +8,7 @@ from datetime import datetime
 from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Optional
-
+from util import merge_intervals
 import numpy.random
 from faker import Faker
 import pyppeteer.page
@@ -41,6 +41,8 @@ class Crawler:
         self.active_page: Optional[pyppeteer.page.Page] = None
         self.invalid_actions: dict[Action, bool] = defaultdict(lambda: False, {})
         self.application_failures: list[Failure] = []
+        self.coverage_dict: dict[str, list[tuple[int, int]]] = defaultdict(lambda: [],
+                                                                           {})  # js script to list of executed ranges
 
         self.root_domain: str = urlparse(self.home_url).netloc
         self.failed_test_cases: list[Testcase] = []
@@ -72,11 +74,14 @@ class Crawler:
         await self.init_browser()
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
+        await self.active_page.coverage.startJSCoverage()
+
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         await self.active_page.setCacheEnabled(True)
 
         # print('Starting testing from home page\n\n')
         this = self
+
         async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 self.is_failing = True
@@ -138,6 +143,31 @@ class Crawler:
 
         return sorted_actions[0]
 
+    async def save_code_coverage(self):
+        jsCoverage = await self.active_page.coverage.stopJSCoverage()
+
+        totalBytes = 0
+        usedBytes = 0
+        for entry in jsCoverage:
+            # totalBytes += len(entry['text'])
+            for range in entry['ranges']:
+                self.coverage_dict[entry['text']].append((range['start'], range['end']))
+                # usedBytes += range['end'] - range['start'] - 1
+
+        # print('Bytes used: {}%'.format(usedBytes / totalBytes * 100))
+
+    def report_statistics(self):
+        total_bytes = 0
+        used_bytes = 0
+        coverages = {k: merge_intervals(v) for (k, v) in self.coverage_dict.items()}
+        for script in coverages.keys():
+            total_bytes += len(script)
+            for r in coverages[script]:
+                used_bytes += r[1] - r[0] - 1
+
+        percentage = (used_bytes / total_bytes) * 100
+        logging.warning(f'(Failure Count, Coverage Percentage) : ({len(self.application_failures)}, {percentage})')
+
     async def start(self):
         logging.warning("Starting")
         time_elapsed = (time.time() - self.start_time) / 60
@@ -147,8 +177,16 @@ class Crawler:
                 await self.crawl()  # crawl will close program upon finishing
             except:
                 pass
+            await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
+
+            if (time.time() - self.last_reporting_time) / 60 >= 1:
+                self.report_statistics()
+                self.last_reporting_time = time.time()
+
+
         logging.warning("Finished")
+        self.report_statistics()
         logging.warning(
             "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
         logging.warning('Unique Failures: ' + str(len(self.application_failures)))
@@ -196,6 +234,7 @@ class Crawler:
 
                 # check if stuck for some while
                 if (time.time() - self.no_new_state_interval) / 60 > self.TRACE_SELECTION_INTERVAL:
+                    await self.save_code_coverage()
                     await self._restart_env(False)
                     prev_webstate: Webstate = (await self._get_page_webstate())[0]
                     edges = self.qlearning.generate_most_curious_action_trace(self.home_state)
