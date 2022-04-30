@@ -29,7 +29,7 @@ async def main():
             sys.exit(1)
         website = tups[0]
     else:
-        website = websites[2]
+        website = websites[1]
 
     session = '/tmp/myChromeSession-' + website[1] + str(hash(website[1]))
     if os.path.isdir(session):

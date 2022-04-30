@@ -126,21 +126,23 @@ class Crawler:
     async def _initial_setup(self, is_random):
 
         if not is_random or random.uniform(0, 1) > 0.1:
-            if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
-                signin_button = await self.active_page.querySelector('button[type="submit"]')
-                await signin_button.click()
-                await self.active_page.waitForSelector('#authentication_container')
+            try:
+                if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
+                    signin_button = await self.active_page.querySelector('button[type="submit"]')
+                    await signin_button.click()
+                    await self.active_page.waitForSelector('#authentication_container')
 
-            elif self.project_code == 'pagekit':
-                username_input = await self.active_page.querySelector('input[type="text"]')
-                await username_input.type('admin')
+                elif self.project_code == 'pagekit':
+                    username_input = await self.active_page.querySelector('input[type="text"]')
+                    await username_input.type('admin')
 
-                password_input = await self.active_page.querySelector('input[type="password"]')
-                await password_input.type('asdfghjkl123')
+                    password_input = await self.active_page.querySelector('input[type="password"]')
+                    await password_input.type('asdfghjkl123')
 
-                login_button = await self.active_page.querySelector('button')
-                await login_button.click()
-
+                    login_button = await self.active_page.querySelector('button')
+                    await login_button.click()
+            except:
+                pass # if auth session holds and element not found, no need to handle error as already logged in
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
                                 key=lambda act: self.qlearning.calculate_action_weight(
@@ -149,7 +151,10 @@ class Crawler:
         return sorted_actions[0]
 
     async def save_code_coverage(self):
-        jsCoverage = await self.active_page.coverage.stopJSCoverage()
+        try:
+            jsCoverage = await self.active_page.coverage.stopJSCoverage()
+        except:
+            return
 
         self.coverage_dump_file.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}:\n')
         json.dump(jsCoverage, self.coverage_dump_file)
@@ -182,8 +187,8 @@ class Crawler:
             try:
                 await self.crawl()  # crawl will close program upon finishing
             except:
-                traceback.print_exc()
-                # pass
+                # traceback.print_exc()
+                pass
             await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
 
@@ -297,7 +302,7 @@ class Crawler:
             # w: tuple[
             #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
             # demo_webstate = w[0]
-            self.actions_log_file.write(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+            self.actions_log_file.write(f'{prev_webstate.__str__()}, {action.__str__()}, {next_webstate.__str__()}, {next_webstate.url}\n')
             # print('url s: ', prev_webstate.url, next_webstate.url)
             # for a in next_webstate.valid_actions:
             #     print(a, self.qlearning.q_table[(
