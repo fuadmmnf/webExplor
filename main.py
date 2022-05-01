@@ -13,8 +13,8 @@ parser.add_argument('--project', help='Mention project code, for example: trello
 args = parser.parse_args()
 
 
-async def main():
 
+if __name__ == '__main__':
     websites = [
         ("http://localhost:8080", 'petclinic'), ("http://localhost:3000/pagekit/index.php/admin/", 'pagekit'),
         ("http://localhost:4000", 'trello'),
@@ -29,17 +29,15 @@ async def main():
             sys.exit(1)
         website = tups[0]
     else:
-        website = websites[1]
+        website = websites[2]
 
     session = '/tmp/myChromeSession-' + website[1] + str(hash(website[1]))
     if os.path.isdir(session):
         shutil.rmtree(session)
 
     crawler: Crawler = Crawler(website[0], website[1], session)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(await crawler.start())
+    asyncio.get_event_loop().run_until_complete(crawler.start())
 
 
-if __name__ == '__main__':
-    asyncio.run(main())
-    sys.exit(0)
+
+  
