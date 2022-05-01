@@ -13,8 +13,9 @@ def _element_filter_formatter(x):
     def __remove_digits(s):
         return ''.join([i for i in s if not i.isdigit()])
 
-    return f'{x.name} ' + str(
-        {__remove_digits(k): __remove_digits(v) if k != 'href' else v for k, v in x.attrs.items()})
+    return f'{x.name} {x.contents}' + str(
+        {__remove_digits(k): __remove_digits(v) if k != 'href' else v for k, v in x.attrs.items() if
+         (v and k != 'class')})
 
 
 async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url: str) -> Webstate:
@@ -29,7 +30,7 @@ async def _retrieve_webstate(page: pyppeteer.page.Page, page_html: str, page_url
 
     action_element_htmls: list[str] = list(
         map(lambda x: _element_filter_formatter(x),  # id can change dynamically for each run
-            parser.select('input, a, button, select > option')))
+            parser.select('a, input, button, select > option')))
     element_handles: list[ElementHandle] = await page.querySelectorAll(
         'input, a, button, select')
 

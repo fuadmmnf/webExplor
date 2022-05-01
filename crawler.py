@@ -20,6 +20,7 @@ from models.failure import Failure
 from models.form_group import FormGroup
 from models.webstate import Webstate
 from preprocessing import Preprocessing
+from qlearning import QLearning
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
@@ -162,7 +163,7 @@ class Crawler:
     def _select_epsilon_greedy_action(self, webstate) -> Action:
         sorted_actions = sorted(webstate.valid_actions,
                                 key=lambda act: (
-                                    [1, 2, 0][self.webstate_action_exploration_dict[(webstate, act)]] if not
+                                    [10000, 1000000, 0][self.webstate_action_exploration_dict[(webstate, act)]] if not
                                     self.invalid_actions[act] else -1,
                                     random.random()),
                                 reverse=True)  # not dfs, dfs + bfs combination
@@ -212,7 +213,7 @@ class Crawler:
             try:
                 await self.crawl()  # crawl will close program upon finishing
             except:
-                #traceback.print_exc()
+                # traceback.print_exc()
                 pass
             await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
@@ -252,11 +253,12 @@ class Crawler:
             lambda: None, {})  # webstate non duplicate action list with discovery status
         action_discovered_dict: dict[Action, bool] = defaultdict(lambda: False, {})
 
-        # redo entire process
+        # # redo entire process
         rootstate_actions_exploration_left = len([a for a in prev_webstate.valid_actions or [] if
                                                   self.webstate_action_exploration_dict[
                                                       (prev_webstate, a)] < 2 and not self.invalid_actions[a]])
         if rootstate_actions_exploration_left == 0:
+            logging.warning('redoing process')
             self.webstate_action_exploration_dict.clear()
 
         # redo entire process
