@@ -199,8 +199,7 @@ class Crawler:
         self.actions_log_file.close()
         logging.warning("Finished")
         self.report_statistics()
-        logging.warning(
-            "Unique Webstates:" + str(len(self.preprocessing.webstate_set)) + str(self.preprocessing.webstate_set))
+        
         logging.warning('Unique Failures: ' + str(len(self.application_failures)))
         for f in self.application_failures:
             logging.error(str(f))
