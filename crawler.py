@@ -140,7 +140,7 @@ class Crawler:
 
     async def _initial_setup(self):
 
-        if not random.uniform(0, 1) > 0.1:
+        if random.uniform(0, 1) > 0.1:
             try:
                 if self.project_code == 'trello' and self.active_page.url == 'http://localhost:4000/sign_in':
                     signin_button = await self.active_page.querySelector('button[type="submit"]')
@@ -212,8 +212,8 @@ class Crawler:
             try:
                 await self.crawl()  # crawl will close program upon finishing
             except:
-                traceback.print_exc()
-                # pass
+                #traceback.print_exc()
+                pass
             await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
 
@@ -359,7 +359,8 @@ class Crawler:
             # w: tuple[
             #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
             # demo_webstate = w[0]
-            # print(f'{prev_webstate}, {action}, {next_webstate}, {next_webstate.url}')
+            self.actions_log_file.write(f'{prev_webstate.__str__()}, {action.__str__()}, {next_webstate.__str__()}, {next_webstate.url}\n')
+
             # print('url s: ', prev_webstate.url, next_webstate.url)
             # for a in next_webstate.valid_actions:
             #     print(f'{a}, {self.qlearning.q_table[(next_webstate, a)] if not self.invalid_actions[a] else -1}')
