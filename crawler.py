@@ -84,14 +84,7 @@ class Crawler:
         await self.init_browser()
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
-        await self.active_page.coverage.startJSCoverage()
-
-        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
-        await self.active_page.setCacheEnabled(True)
-
-        # print('Starting testing from home page\n\n')
         this = self
-
         async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 self.is_failing = True
@@ -137,6 +130,15 @@ class Crawler:
             lambda dialog: asyncio.ensure_future(handle_dialog(dialog))
         )
 
+
+        await self.active_page.coverage.startJSCoverage()
+
+        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
+        await self.active_page.setCacheEnabled(True)
+
+        # print('Starting testing from home page\n\n')
+
+
         await self._initial_setup()
 
     async def _initial_setup(self):
@@ -157,6 +159,9 @@ class Crawler:
 
                     login_button = await self.active_page.querySelector('button')
                     await login_button.click()
+                elif self.project_code == 'dimeshift':
+                    signin_button = await self.active_page.querySelector('input[type="submit"]')
+                    await signin_button.click()
             except:
                 pass  # if auth session holds and element not found, no need to handle error as already logged in
 

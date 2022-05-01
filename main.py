@@ -28,7 +28,7 @@ if __name__ == '__main__':
             sys.exit(1)
         website = tups[0]
     else:
-        website = websites[0]
+        website = websites[5]
 
     session = '/tmp/myChromeSession-' + website[1] + str(hash(website[1]))
     if os.path.isdir(session):
