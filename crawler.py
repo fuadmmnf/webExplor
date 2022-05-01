@@ -189,7 +189,6 @@ class Crawler:
         # for entry in jsCoverage:
         #     for range in entry['ranges']:
         #         self.coverage_dict[entry['text']] = self.coverage_dict[entry['text']] + [(range['start'], range['end'])]
-
     def report_statistics(self):
         # total_bytes = 0
         # used_bytes = 0
