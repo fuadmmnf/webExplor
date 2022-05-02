@@ -1,3 +1,6 @@
+from hashlib import md5
+
+
 def merge_intervals(ranges: list[tuple[int, int]]):
     ranges.sort(key=lambda x: x[0])
 
@@ -25,3 +28,10 @@ def merge_intervals(ranges: list[tuple[int, int]]):
         res.append((s, max))
 
     return res
+
+
+def md5_hash(strs: list[str]):
+    m = md5()
+    for s in strs:
+        m.update(s.encode())
+    return int(m.hexdigest(), 16)

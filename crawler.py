@@ -21,6 +21,7 @@ from models.form_group import FormGroup
 from models.webstate import Webstate
 from preprocessing import Preprocessing
 from qlearning import QLearning
+from util import md5_hash
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
@@ -50,6 +51,7 @@ class Crawler:
         self.application_failures: list[Failure] = []
         self.coverage_dict: dict[str, list[tuple[int, int]]] = defaultdict(lambda: [],
                                                                            {})  # js script to list of executed ranges
+        self.app_scripts_dict: dict[str, str] = dict()
         self.coverage_dump_file = open(self.log_name + '_coverage.log', "w")
         self.actions_log_file = open(self.log_name + '_actions.log', "w")
 
@@ -85,6 +87,7 @@ class Crawler:
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
         this = self
+
         async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
             if message.type == 'error':
                 self.is_failing = True
@@ -130,14 +133,12 @@ class Crawler:
             lambda dialog: asyncio.ensure_future(handle_dialog(dialog))
         )
 
-
         await self.active_page.coverage.startJSCoverage()
 
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         await self.active_page.setCacheEnabled(True)
 
         # print('Starting testing from home page\n\n')
-
 
         await self._initial_setup()
 
@@ -187,13 +188,16 @@ class Crawler:
         except:
             return
 
+        for idx, entry in enumerate(jsCoverage):
+            h = md5_hash(entry['text'])
+            if h not in self.app_scripts_dict:
+                self.app_scripts_dict[h] = entry['text']
+            jsCoverage[idx]['text'] = h
+
         self.coverage_dump_file.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}:\n')
         json.dump(jsCoverage, self.coverage_dump_file)
         self.coverage_dump_file.write('\n')
 
-        # for entry in jsCoverage:
-        #     for range in entry['ranges']:
-        #         self.coverage_dict[entry['text']] = self.coverage_dict[entry['text']] + [(range['start'], range['end'])]
     def report_statistics(self):
         # total_bytes = 0
         # used_bytes = 0
@@ -225,11 +229,16 @@ class Crawler:
             if (time.time() - self.last_reporting_time) / 60 >= 1:
                 self.report_statistics()
                 self.last_reporting_time = time.time()
+
+        self.coverage_dump_file.write(f'Scripts Mapping:\n')
+        json.dump(self.app_scripts_dict, self.coverage_dump_file)
+        self.coverage_dump_file.write('\n')
         self.coverage_dump_file.close()
+
         self.actions_log_file.close()
         logging.warning("Finished")
         self.report_statistics()
-        
+
         logging.warning('Unique Failures: ' + str(len(self.application_failures)))
         for f in self.application_failures:
             logging.error(str(f))
@@ -364,7 +373,8 @@ class Crawler:
             # w: tuple[
             #     Webstate, bool] = await self._get_page_webstate()  # returns webstate and if new state discovered
             # demo_webstate = w[0]
-            self.actions_log_file.write(f'{prev_webstate.__str__()}, {action.__str__()}, {next_webstate.__str__()}, {next_webstate.url}\n')
+            self.actions_log_file.write(
+                f'{prev_webstate.__str__()}, {action.__str__()}, {next_webstate.__str__()}, {next_webstate.url}\n')
 
             # print('url s: ', prev_webstate.url, next_webstate.url)
             # for a in next_webstate.valid_actions:
