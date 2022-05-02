@@ -125,7 +125,7 @@ class Crawler:
 
         # print('Starting testing from home page\n\n')
 
-        await self._initial_setup()
+        await self._initial_setup(wait)
 
 
     async def _initial_setup(self, is_random):
@@ -196,7 +196,7 @@ class Crawler:
             try:
                 await self.crawl()  # crawl will close program upon finishing
             except:
-                # traceback.print_exc()
+                #traceback.print_exc()
                 pass
             await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
