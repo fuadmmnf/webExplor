@@ -10,7 +10,7 @@ def _element_filter_formatter(x):
     def __remove_digits(s):
         return ''.join([i for i in s if not i.isdigit()])
 
-    return f'{x.name} ' + str(
+    return f'{x.name} {x.contents}' + str(
         {__remove_digits(k): __remove_digits(v) if k != 'href' else v for k, v in x.attrs.items()})
 
 

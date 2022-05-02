@@ -21,6 +21,7 @@ from qlearning import QLearning
 from models.webstate import Webstate
 from models.action import Action
 from models.failure import Failure
+from util import md5_hash
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
@@ -47,6 +48,7 @@ class Crawler:
         self.application_failures: list[Failure] = []
         self.coverage_dict: dict[str, list[tuple[int, int]]] = defaultdict(lambda: [],
                                                                            {})  # js script to list of executed ranges
+        self.app_scripts_dict: dict[str, str] = dict()
         self.coverage_dump_file = open(self.log_name + '_coverage.log', "w")
         self.actions_log_file = open(self.log_name + '_actions.log', "w")
 
@@ -79,12 +81,6 @@ class Crawler:
         await self.init_browser()
         self.active_page = (await self.browser.pages())[0]
         # await self.active_page.setViewport({'width': 1366, 'height': 768})
-        await self.active_page.coverage.startJSCoverage()
-
-        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
-        await self.active_page.setCacheEnabled(True)
-
-        # print('Starting testing from home page\n\n')
         this = self
 
         async def handle_console_error(message: pyppeteer.page.ConsoleMessage):
@@ -121,7 +117,16 @@ class Crawler:
         self.active_page.on('requestfailed', lambda request: asyncio.ensure_future(handle_request_error(request)))
         self.active_page.on('requestfinished', lambda request: asyncio.ensure_future(handle_request_error(request)))
 
-        await self._initial_setup(wait)
+
+        await self.active_page.coverage.startJSCoverage()
+
+        await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
+        await self.active_page.setCacheEnabled(True)
+
+        # print('Starting testing from home page\n\n')
+
+        await self._initial_setup()
+
 
     async def _initial_setup(self, is_random):
 
@@ -141,6 +146,9 @@ class Crawler:
 
                     login_button = await self.active_page.querySelector('button')
                     await login_button.click()
+                elif self.project_code == 'dimeshift':
+                    signin_button = await self.active_page.querySelector('input[type="submit"]')
+                    await signin_button.click()
             except:
                 pass # if auth session holds and element not found, no need to handle error as already logged in
     def _select_epsilon_greedy_action(self, webstate) -> Action:
@@ -156,14 +164,15 @@ class Crawler:
         except:
             return
 
+        for idx, entry in enumerate(jsCoverage):
+            h = md5_hash(entry['text'])
+            if h not in self.app_scripts_dict:
+                self.app_scripts_dict[h] = entry['text']
+            jsCoverage[idx]['text'] = h
+
         self.coverage_dump_file.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}:\n')
         json.dump(jsCoverage, self.coverage_dump_file)
         self.coverage_dump_file.write('\n')
-
-        # for entry in jsCoverage:
-        #     for range in entry['ranges']:
-        #         self.coverage_dict[entry['text']] = self.coverage_dict[entry['text']] + [(range['start'], range['end'])]
-
     def report_statistics(self):
         # total_bytes = 0
         # used_bytes = 0
@@ -195,6 +204,9 @@ class Crawler:
             if (time.time() - self.last_reporting_time) / 60 >= 1:
                 self.report_statistics()
                 self.last_reporting_time = time.time()
+        self.coverage_dump_file.write(f'Scripts Mapping:\n')
+        json.dump(self.app_scripts_dict, self.coverage_dump_file)
+        self.coverage_dump_file.write('\n')
         self.coverage_dump_file.close()
         self.actions_log_file.close()
         logging.warning("Finished")
