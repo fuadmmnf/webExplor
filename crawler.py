@@ -133,7 +133,7 @@ class Crawler:
             lambda dialog: asyncio.ensure_future(handle_dialog(dialog))
         )
 
-        await self.active_page.coverage.startJSCoverage()
+        await self.active_page.coverage.startJSCoverage(options={'resetOnNavigation': False})
 
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         await self.active_page.setCacheEnabled(True)
