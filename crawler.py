@@ -198,11 +198,11 @@ class Crawler:
             except:
                 #traceback.print_exc()
                 pass
-            await self.save_code_coverage()
+            # await self.save_code_coverage()
             time_elapsed = (time.time() - self.start_time) / 60
 
             if (time.time() - self.last_reporting_time) / 60 >= 1:
-                self.report_statistics()
+                # self.report_statistics()
                 self.last_reporting_time = time.time()
         # self.coverage_dump_file.write(f'Scripts Mapping:\n')
         # json.dump(self.app_scripts_dict, self.coverage_dump_file)
