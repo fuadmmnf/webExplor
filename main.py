@@ -18,7 +18,7 @@ if __name__ == '__main__':
     websites = [
         ("http://localhost:8080", 'petclinic'), ("http://localhost:3000/pagekit/index.php/admin/", 'pagekit'),
         ("http://localhost:4000", 'trello'),
-        ("http://localhost:4001", 'retroboard'), ("http://localhost:4200", 'splittypie'),
+        ("http://localhost:1800", 'retroboard'), ("http://localhost:4200", 'splittypie'),
         ("http://localhost:3001", 'dimeshift')
     ]
 
