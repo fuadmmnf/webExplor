@@ -10,7 +10,7 @@ def get_list_item_counts(l: list[str]) -> list[int]:
     return list(counts.values())
 
 
-files = [f for f in glob.glob("./res/logs/my_approach/*") if "actions" not in f]
+files = [f for f in glob.glob("./res/logs/webExplor/*") if "actions" not in f]
 results = []
 for file in files:
     project_code = file.split('/')[-1].split('_')[0]
