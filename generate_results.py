@@ -16,6 +16,8 @@ for file in files:
     project_code = file.split('/')[-1].split('_')[0]
     per_minute_failures = []
 
+    if project_code != 'dimeshift':
+        continue
     failure_lines = [line for line in
                      open(file, 'r').read().split('WARNING  Finished')[0].split('WARNING  Starting')[1].split('\n') if
                      "ERROR    Failure" in line]
@@ -61,7 +63,7 @@ for file in files:
 
     counts = get_list_item_counts([str(trace) for trace in traces])
     redundant_actions_between_count = sum(counts) - len(counts)
-
+    pprint.pprint(unique_failures)
     results.append({
         'project': project_code,
         'total_failure': len(failure_lines),
