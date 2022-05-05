@@ -13,8 +13,6 @@ def get_list_item_counts(l: list[str]) -> list[int]:
 files = [f for f in glob.glob("./res/logs/my_approach/*") if "actions" not in f]
 results = []
 for file in files:
-    if "petclinic" not in file:
-        continue
     project_code = file.split('/')[-1].split('_')[0]
     per_minute_failures = []
 
