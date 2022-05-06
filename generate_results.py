@@ -16,26 +16,32 @@ for file in files:
     project_code = file.split('/')[-1].split('_')[0]
     per_minute_failures = []
     #
-    # if project_code != 'dimeshift':
+    # if project_code != 'trello':
     #     continue
 
+    before_finished_content, after_finished_content = open(file, 'r').read().split('WARNING  Finished', 1)
     failure_lines = [line for line in
-                     open(file, 'r').read().split('WARNING  Finished')[0].split('WARNING  Starting')[1].split('\n') if
-                     "ERROR    Failure" in line]
+                     before_finished_content.split('WARNING  Starting')[1].split('\n')[: -1] if
+                     "ERROR    Failure" in line and len(line)]
+    reported_unique_failures = [f[19:] for f in
+                                after_finished_content.split('WARNING  Unique Failures')[1].split('\n')[1:]
+                                if len(f) and f[0] != '~']
+
     actions = ["".join(line.split(',')[1:-2]).strip() for line in
                open(f'{file.split(".log")[0]}_actions.log', 'r').readlines()]
 
     curr_minute = failure_lines[0][14:16]
-    unique_failures = []
+    parsed_unique_failures = []
+
     for failure_line in failure_lines:
         minute = failure_line[14:16]
-        failure_text = failure_line[19:]
+        failure_text = failure_line[19:].replace('Failure: ', '')
         if minute != curr_minute:
-            per_minute_failures.append(len(unique_failures))
+            per_minute_failures.append(len(parsed_unique_failures))
             curr_minute = minute
-        if failure_text not in unique_failures:
-            unique_failures.append(failure_text)
-    per_minute_failures.append(len(unique_failures))
+        if failure_text not in parsed_unique_failures and failure_text in reported_unique_failures:
+            parsed_unique_failures.append(failure_text)
+    per_minute_failures.append(len(parsed_unique_failures))
 
     traces = []
     current_trace_actions = []
@@ -65,10 +71,10 @@ for file in files:
     counts = get_list_item_counts([str(trace) for trace in traces])
     redundant_actions_between_count = sum(counts) - len(counts)
 
-    print(project_code)
-    for f in unique_failures:
-        print(f)
-    print('\n\n')
+    # for f in parsed_unique_failures:
+    #     print(f)
+    # print('\n\n')
+
 
     results.append({
         'project': project_code,
@@ -77,7 +83,7 @@ for file in files:
         'redundancy(within)_percentage': (redundant_actions_within_count * 100.00) / action_count,
         'redundancy(within)_occurance_percentage': (redundancy_within_occurance * 100.00) / len(traces),
         'redundancy(between)': (redundant_actions_between_count * 100.00) / len(traces),
-        'failure_messages': "| ".join(unique_failures)
+        # 'failure_messages': "| ".join(parsed_unique_failures)
     })
 
-# pprint.pprint(results)
+pprint.pprint(results)
