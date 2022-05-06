@@ -15,9 +15,10 @@ results = []
 for file in files:
     project_code = file.split('/')[-1].split('_')[0]
     per_minute_failures = []
+    #
+    # if project_code != 'dimeshift':
+    #     continue
 
-    if project_code != 'dimeshift':
-        continue
     failure_lines = [line for line in
                      open(file, 'r').read().split('WARNING  Finished')[0].split('WARNING  Starting')[1].split('\n') if
                      "ERROR    Failure" in line]
@@ -63,14 +64,20 @@ for file in files:
 
     counts = get_list_item_counts([str(trace) for trace in traces])
     redundant_actions_between_count = sum(counts) - len(counts)
-    pprint.pprint(unique_failures)
+
+    print(project_code)
+    for f in unique_failures:
+        print(f)
+    print('\n\n')
+
     results.append({
         'project': project_code,
         'total_failure': len(failure_lines),
-        'unqiue_failures': per_minute_failures,
+        'unqiue_failures': " ".join([str(f) for f in per_minute_failures]),
         'redundancy(within)_percentage': (redundant_actions_within_count * 100.00) / action_count,
         'redundancy(within)_occurance_percentage': (redundancy_within_occurance * 100.00) / len(traces),
-        'redundancy(between)': (redundant_actions_between_count * 100.00) / len(traces)
+        'redundancy(between)': (redundant_actions_between_count * 100.00) / len(traces),
+        'failure_messages': "| ".join(unique_failures)
     })
 
-pprint.pprint(results)
+# pprint.pprint(results)
