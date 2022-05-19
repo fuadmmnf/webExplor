@@ -21,14 +21,14 @@ from models.form_group import FormGroup
 from models.webstate import Webstate
 from preprocessing import Preprocessing
 from qlearning import QLearning
-from util import md5_hash
+from util import md5_hash, merge_intervals
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
 class Crawler:
     MAXIMUM_STEPS = 8
     TRACE_SELECTION_INTERVAL = 2
-    TIME_BUDGET_MINUTES = 30
+    TIME_BUDGET_MINUTES = 5
     EPSILON = 0.5
     IS_HEADLESS_START = True
 
@@ -48,8 +48,8 @@ class Crawler:
         self.webstate_form_state_dict: dict[tuple[Webstate, Action], int] = defaultdict(lambda: 0,
                                                                                         {})  # 0 => all fields blank, 1 => some fields filled, 2 => all fields filled
         self.application_failures: list[Failure] = []
-        # self.coverage_dict: dict[str, list[tuple[int, int]]] = defaultdict(lambda: [],
-        #                                                                    {})  # js script to list of executed ranges
+        self.coverage_dict: dict[str, list[tuple[int, int]]] = defaultdict(lambda: [],
+                                                                           {})  # js script to list of executed ranges
         self.app_scripts_dict: dict[str, str] = dict()
         # self.coverage_dump_file = open(self.log_name + '_coverage.log', "w")
         self.actions_log_file = open(self.log_name + '_actions.log', "w")
@@ -106,7 +106,8 @@ class Crawler:
             res = http_request.response
             if req_failure is not None:
                 failing = True
-                failure = Failure(req_failure["errorText"].replace('\n', '\t').replace('\r', '\t'), this.active_page.url)
+                failure = Failure(req_failure["errorText"].replace('\n', '\t').replace('\r', '\t'),
+                                  this.active_page.url)
             if res is not None:
                 if 400 <= res.status < 600:
                     failing = True
@@ -133,7 +134,7 @@ class Crawler:
             lambda dialog: asyncio.ensure_future(handle_dialog(dialog))
         )
 
-        # await self.active_page.coverage.startJSCoverage()
+        await self.active_page.coverage.startJSCoverage({'resetOnNavigation': False})
 
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         await self.active_page.setCacheEnabled(True)
@@ -182,36 +183,29 @@ class Crawler:
 
         return sorted_actions[0]
 
-    # async def save_code_coverage(self):
-    #     try:
-    #         jsCoverage = await self.active_page.coverage.stopJSCoverage()
-    #     except:
-    #         return
-    #
-    #     for idx, entry in enumerate(jsCoverage):
-    #         h = md5_hash(entry['text'])
-    #         if h not in self.app_scripts_dict:
-    #             self.app_scripts_dict[h] = entry['text']
-    #         jsCoverage[idx]['text'] = h
-    #
-    #     self.coverage_dump_file.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}:\n')
-    #     json.dump(jsCoverage, self.coverage_dump_file)
-    #     self.coverage_dump_file.write('\n')
+    async def save_code_coverage(self):
+        jsCoverage = []
+        try:
+            jsCoverage = await self.active_page.coverage.stopJSCoverage()
+        except:
+            pass
 
-    # def report_statistics(self):
-        # total_bytes = 0
-        # used_bytes = 0
-        #
-        # coverages = {k: merge_intervals(v) for (k, v) in self.coverage_dict.items()}
-        # for script in coverages.keys():
-        #     total_bytes += len(script)
-        #     for r in coverages[script]:
-        #         used_bytes += r[1] - r[0] - 1
-        #
-        # percentage = (used_bytes / total_bytes) * 100
-        # logging.warning(f'(Failure Count, Coverage Percentage) : ({len(self.application_failures)}, {percentage})')
+        for entry in jsCoverage:
+            self.coverage_dict[entry['text']] = self.coverage_dict[entry['text']] + [(r['start'], r['end']) for r in
+                                                                                     entry['ranges']]
 
-        # logging.warning(f'(Failure Count) : ({len(self.application_failures)})"')
+    def report_statistics(self):
+        total_bytes = 0
+        used_bytes = 0
+
+        coverages = {k: merge_intervals(v) for (k, v) in self.coverage_dict.items()}
+        for script in coverages.keys():
+            total_bytes += len(script)
+            for r in coverages[script]:
+                used_bytes += r[1] - r[0] - 1
+
+        percentage = (used_bytes / total_bytes) * 100
+        logging.warning(f'(Failure Count, Coverage Percentage) : ({len(self.application_failures)}, {percentage})')
 
     async def start(self):
         logging.warning("Starting")
@@ -220,15 +214,16 @@ class Crawler:
         while time_elapsed <= self.TIME_BUDGET_MINUTES:
             try:
                 await self.crawl()  # crawl will close program upon finishing
+                await self.save_code_coverage()
             except:
                 # traceback.print_exc()
                 pass
-            # await self.save_code_coverage()
+
             time_elapsed = (time.time() - self.start_time) / 60
 
             # if (time.time() - self.last_reporting_time) / 60 >= 1:
-                # self.report_statistics()
-                # self.last_reporting_time = time.time()
+            # self.report_statistics()
+            # self.last_reporting_time = time.time()
 
         # self.coverage_dump_file.write(f'Scripts Mapping:\n')
         # json.dump(self.app_scripts_dict, self.coverage_dump_file)
@@ -237,9 +232,9 @@ class Crawler:
 
         self.actions_log_file.close()
         logging.warning("Finished")
-        # self.report_statistics()
+        self.report_statistics()
 
-        logging.warning('Unique Failures: ' + str(len(self.application_failures)))
+        # logging.warning('Unique Failures: ' + str(len(self.application_failures)))
         for f in self.application_failures:
             logging.error(str(f))
 
