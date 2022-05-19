@@ -25,7 +25,6 @@ from util import md5_hash
 
 Testcase = list[tuple[Webstate, Optional[Action]]]
 
-
 class Crawler:
     MAXIMUM_STEPS = 8
     TRACE_SELECTION_INTERVAL = 2
