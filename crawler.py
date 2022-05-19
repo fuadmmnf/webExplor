@@ -33,7 +33,8 @@ class Crawler:
     EPSILON = 0.5
     IS_HEADLESS_START = True
 
-    def __init__(self, home_url: str, project_code: str, session_dir: str):
+    def __init__(self, home_url: str, project_code: str, session_dir: str, time_budget: int):
+        self.TIME_BUDGET_MINUTES = time_budget
         self.qlearning: QLearning = QLearning()
         self.preprocessing: Preprocessing = Preprocessing()
         self.home_url: str = home_url
