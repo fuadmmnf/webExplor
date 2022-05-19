@@ -27,12 +27,11 @@ Testcase = list[tuple[Webstate, Optional[Action]]]
 
 class Crawler:
     MAXIMUM_STEPS = 8
-    TRACE_SELECTION_INTERVAL = 2
-    TIME_BUDGET_MINUTES = 5
-    EPSILON = 0.5
+    TIME_BUDGET_MINUTES = 30
     IS_HEADLESS_START = True
 
-    def __init__(self, home_url: str, project_code: str, session_dir: str):
+    def __init__(self, home_url: str, project_code: str, session_dir: str, time_budget: int):
+        self.TIME_BUDGET_MINUTES = time_budget
         self.preprocessing: Preprocessing = Preprocessing()
         self.home_url: str = home_url
         self.project_code: str = project_code

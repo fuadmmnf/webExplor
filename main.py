@@ -11,6 +11,7 @@ nest_asyncio.apply()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--project', help='Mention project code, for example: trello')
+parser.add_argument('--time', help='Mention time budget, for example: 30')
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -28,11 +29,21 @@ if __name__ == '__main__':
             sys.exit(1)
         website = tups[0]
     else:
-        website = websites[0]
-
+        website = websites[2]
+    time_budget = 30
+    if args.time is not None:
+        try:
+            time_budget = int(args.time)
+        except:
+            print('provide valid time (in minutes)')
+            exit(1)
     session = '/tmp/myChromeSession-' + website[1] + str(hash(website[1]))
     if os.path.isdir(session):
         shutil.rmtree(session)
 
-    crawler: Crawler = Crawler(website[0], website[1], session)
+    crawler: Crawler = Crawler(website[0], website[1], session, time_budget)
     asyncio.get_event_loop().run_until_complete(crawler.start())
+
+
+
+
