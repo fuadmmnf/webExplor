@@ -118,7 +118,7 @@ class Crawler:
         self.active_page.on('requestfailed', lambda request: asyncio.ensure_future(handle_request_error(request)))
         self.active_page.on('requestfinished', lambda request: asyncio.ensure_future(handle_request_error(request)))
 
-        await self.active_page.coverage.startJSCoverage()
+        await self.active_page.coverage.startJSCoverage(options={'resetOnNavigation': False})
 
         await self.active_page.goto(self.home_url, {'waitUntil': 'networkidle0'} if wait else {})
         await self.active_page.setCacheEnabled(True)
@@ -188,10 +188,11 @@ class Crawler:
         while time_elapsed <= self.TIME_BUDGET_MINUTES:
             try:
                 await self.crawl()  # crawl will close program upon finishing
+                await self.save_code_coverage()
             except:
                 # traceback.print_exc()
                 pass
-            await self.save_code_coverage()
+
             time_elapsed = (time.time() - self.start_time) / 60
 
             # if (time.time() - self.last_reporting_time) / 60 >= 1:
